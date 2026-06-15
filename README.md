@@ -1,137 +1,238 @@
 # portofolio-beta
 
-Upgraded fork of `portfolio/` with **all packages on latest** as of npm registry snapshot.
+Upgraded fork of `portfolio/` with **all packages on latest** + **admin CMS** + **modern blue theme** + **MySQL backend**.
 
-## Stack (All Latest)
+## Stack
 
-| Package | Old (portfolio/) | New (portofolio-beta) |
-|---|---|---|
-| `next` | 14.1.4 | **^16.2.9** |
-| `react` / `react-dom` | ^18 | **^19.2.7** |
-| `@types/react` / `@types/react-dom` | ^18 | **^19.2.17 / ^19.2.3** |
-| `eslint-config-next` | 14.1.4 | **^16.2.9** |
-| `framer-motion` | ^11.0.25 | **^12.40.0** |
-| `next-themes` | ^0.3.0 | **^0.4.6** |
-| `@react-three/fiber` | ^8.16.2 | **^9.6.1** |
-| `@react-three/drei` | ^9.105.4 | **^10.7.7** |
-| `three` / `@types/three` | 0.163.0 | **^0.184.0 / ^0.184.1** |
-| `three-globe` | ^2.31.0 | **^2.45.2** |
-| `lucide-react` | ^0.365.0 | **^1.18.0** (0.x→1.x major) |
-| `@tabler/icons-react` | ^3.1.0 | **^3.44.0** |
-| `tailwind-merge` | ^2.2.2 | **^3.6.0** (major) |
-| `tailwindcss` | ^3.3.0 | **^4.3.1** (major — CSS-first) |
-| `react-icons` | ^5.0.1 | **^5.6.0** |
-| `react-lottie` | ^1.2.4 | **^1.2.10** |
-| `vercel` | ^34.0.0 | **^54.14.0** |
-| `typescript` | ^5 | **^6.0.3** (major) |
-| `eslint` | ^8 | **^10.5.0** (major — flat config) |
-| `postcss` | ^8 | **^8.5.15** |
-| `autoprefixer` | ^10.0.1 | **^10.5.0** |
-| `@types/node` | ^20 | **^25.9.3** |
-| `mini-svg-data-uri` | ^1.4.4 | **^1.4.4** (v2 doesn't exist on npm — fixed) |
-| `@sentry/nextjs` | ^7.105.0 | **^7.120.4** (kept v7 line) |
+| Package | Version |
+|---|---|
+| `next` | ^16.2.9 |
+| `react` / `react-dom` | ^19.2.7 |
+| `framer-motion` | ^12.40.0 |
+| `next-themes` | ^0.4.6 |
+| `@react-three/fiber` / `drei` | ^9.6 / ^10.7 |
+| `three` | ^0.184 |
+| `tailwindcss` | ^4.3.1 (CSS-first) |
+| `typescript` | ^6.0.3 |
+| `eslint` | ^10.5 (flat config) |
+| `mysql2` | ^3.11 |
+| `bcryptjs` | ^3.0 |
+| `@sentry/nextjs` | ^10.57 |
 
-## Breaking Changes Applied
+## Quick Start
 
-### Next 16
-- `app/layout.tsx`: `viewport` exported separately from `metadata`
-- No dynamic routes → no async `params`/`searchParams` migration needed
-- No `cookies()` / `headers()` usage
-
-### React 19
-- All client components already had `"use client"`
-- No `forwardRef` legacy patterns
-
-### Tailwind 4 (CSS-first)
-- `postcss.config.js`: plugin changed from `tailwindcss` → `@tailwindcss/postcss`
-- `app/globals.css`: replaced `@tailwind base/components/utilities` with `@import "tailwindcss"`
-- Backward compat: kept `tailwind.config.ts` via `@config "../../tailwind.config.ts"` directive
-- Note: `flattenColorPalette` from `tailwindcss/lib/util/...` may emit deprecation warnings (private path). Safe but consider migration to `@plugin` directives if warnings appear.
-
-### ESLint 10 (flat config required)
-- Deleted `.eslintrc.json`
-- Created `eslint.config.mjs` using `FlatCompat` from `@eslint/eslintrc`
-- Extends `next/core-web-vitals` and `next/typescript`
-
-### next-themes 0.4
-- `app/provider.tsx`: dropped `next-themes/dist/types` (private path), use `React.ComponentProps<typeof NextThemesProvider>`
-
-### Framer Motion 12
-- API stable for all used exports
-- Optional: `import { motion } from "motion/react"` (new package alias)
-
-### TypeScript 6
-- Target ES2022 maintained
-- Should be source-compatible with TS 5 code in this project
-
-## Run
-
+### 1. Install
 ```bash
 cd portofolio-beta
 npm install
+```
+
+### 2. Start MySQL
+Pastikan MySQL/MariaDB jalan (Laragon/XAMPP/etc). Default conn:
+- Host: `localhost`
+- Port: `3306`
+- User: `root`
+- Password: `` (kosong)
+- DB: `portofolio_beta` (auto-created)
+
+Override via env vars:
+```bash
+DB_HOST=localhost
+DB_PORT=3306
+DB_USER=root
+DB_PASSWORD=
+DB_NAME=portofolio_beta
+```
+
+### 3. Set Admin Password (opsional)
+```bash
+ADMIN_PASSWORD=your-secure-password
+ADMIN_SECRET=random-32-bytes-string  # for HMAC session signing
+```
+Default password: `admin123` (ganti untuk production!).
+
+### 4. Run
+```bash
 npm run dev
 ```
 
-## Build
+Database + tables + seed data **auto-created** on first run.
 
-```bash
-npm run build
-npm run start
+## Admin Panel
+
+Login: **http://localhost:3000/admin/login**
+
+Default password: `admin123` (override via `ADMIN_PASSWORD` env)
+
+Dashboard: **http://localhost:3000/admin**
+
+### CRUD Sections
+
+| Section | Path | What |
+|---|---|---|
+| Dashboard | `/admin` | Overview + counts |
+| Nav Items | `/admin/nav` | Floating navbar links |
+| Grid Items | `/admin/grid-items` | About-section bento grid (6 cards) |
+| Projects | `/admin/projects` | **Portfolio cards** (add/edit/delete) |
+| Testimonials | `/admin/testimonials` | Client quotes (infinite scroll) |
+| Companies | `/admin/companies` | Client logos row |
+| Experience | `/admin/experience` | Work experience cards |
+| Social Media | `/admin/social` | Footer social icons |
+| Nav Items | `/admin/nav` | Navbar links |
+
+Setiap section punya:
+- **Add new** form (top)
+- **Edit** form per item (pre-filled)
+- **Delete** button per item
+
+Mutasi via Server Actions → `revalidatePath('/')` → home page reflect changes instantly.
+
+## Theme: Modern Blue (sky/cyan blend)
+
+- Accent color: `#38BDF8` (sky-400)
+- Conic gradient: `#7DD3FC → #0284C7 → #7DD3FC`
+- Radial accent: `#38BDF8`
+
+Custom `purple` Tailwind color di-override jadi `#38BDF8` (semua `text-purple` jadi biru).
+
+## File Tree
+
+```
+portofolio-beta/
+├── app/
+│   ├── admin/
+│   │   ├── actions.ts          # All server actions (auth, CRUD)
+│   │   ├── layout.tsx          # Protected admin layout + sidebar
+│   │   ├── page.tsx            # Dashboard
+│   │   ├── login/
+│   │   │   ├── page.tsx
+│   │   │   └── LoginForm.tsx
+│   │   ├── projects/page.tsx
+│   │   ├── grid-items/page.tsx
+│   │   ├── testimonials/page.tsx
+│   │   ├── companies/page.tsx
+│   │   ├── experience/page.tsx
+│   │   ├── social/page.tsx
+│   │   └── nav/page.tsx
+│   ├── api/sentry-example-api/route.js
+│   ├── sentry-example-page/page.jsx
+│   ├── global-error.tsx
+│   ├── globals.css             # @import "tailwindcss" + @config
+│   ├── layout.tsx
+│   ├── page.tsx                # Server Component, fetches from MySQL
+│   └── provider.tsx
+├── components/
+│   ├── admin/
+│   │   └── EntityForm.tsx      # Reusable CRUD form
+│   ├── ui/                     # (12 UI components, blue-themed)
+│   ├── Hero.tsx, Grid.tsx, ... # (8 main components)
+├── lib/
+│   ├── auth.ts                 # Cookie session + bcrypt password
+│   ├── data.ts                 # All MySQL CRUD functions
+│   ├── db.ts                   # Pool + schema init + seed
+│   └── utils.ts
+├── data/                       # Static data files (globe.json, confetti.json)
+├── public/                     # 41 assets
+├── sentry.*.config.ts          # Sentry v10 init
+├── next.config.mjs             # withSentryConfig wrapper
+├── package.json
+├── tailwind.config.ts
+├── tsconfig.json
+├── postcss.config.js
+├── eslint.config.mjs
+├── components.json
+└── README.md
 ```
 
-## Lint
+## MySQL Schema (auto-created)
 
-```bash
-npm run lint   # uses eslint.config.mjs (flat config)
+```sql
+CREATE TABLE nav_items (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  link VARCHAR(255) NOT NULL,
+  position INT NOT NULL DEFAULT 0
+);
+
+CREATE TABLE grid_items (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  title TEXT, description TEXT,
+  class_name VARCHAR(255),
+  img_class_name VARCHAR(255),
+  title_class_name VARCHAR(255),
+  img VARCHAR(255), spare_img VARCHAR(255),
+  position INT NOT NULL DEFAULT 0
+);
+
+CREATE TABLE projects (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  title VARCHAR(255) NOT NULL,
+  des TEXT, img VARCHAR(255),
+  icon_lists JSON,
+  link VARCHAR(255),
+  position INT NOT NULL DEFAULT 0
+);
+
+CREATE TABLE testimonials (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  quote TEXT, name VARCHAR(255), title VARCHAR(255),
+  position INT NOT NULL DEFAULT 0
+);
+
+CREATE TABLE companies (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(255), img VARCHAR(255), name_img VARCHAR(255),
+  position INT NOT NULL DEFAULT 0
+);
+
+CREATE TABLE work_experience (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  title VARCHAR(255), description TEXT,
+  class_name VARCHAR(255), thumbnail VARCHAR(255),
+  position INT NOT NULL DEFAULT 0
+);
+
+CREATE TABLE social_media (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  img VARCHAR(255),
+  position INT NOT NULL DEFAULT 0
+);
 ```
 
-## Deploy
+Seed data (4 projects, 6 grid items, 5 testimonials, 5 companies, 4 experiences, 3 socials, 4 nav) diinsert pada first run kalau table kosong.
 
+## Auth
+
+- Cookie-based session (HMAC-signed JWT-like)
+- `httpOnly`, `sameSite=lax`, `secure` (prod)
+- 7-day expiration
+- bcrypt-hashed password (cost 10)
+- Protected routes: `app/admin/layout.tsx` checks `isAuthenticated()` → redirect to login
+
+## Security Notes
+
+⚠️ **Ganti sebelum deploy:**
+1. `ADMIN_PASSWORD` env (default: `admin123`)
+2. `ADMIN_SECRET` env (32+ random bytes)
+
+Generate secret:
 ```bash
-npm run deploy   # vercel --prod
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 ```
 
-## Files Changed From Original `portfolio/`
+## Known Notes
 
-| File | Change |
-|---|---|
-| `package.json` | All deps on latest |
-| `postcss.config.js` | `@tailwindcss/postcss` |
-| `app/globals.css` | `@import "tailwindcss"` + `@config` |
-| `app/layout.tsx` | Separate `viewport` export |
-| `app/provider.tsx` | `React.ComponentProps` typing |
-| `app/global-error.jsx` | New (was Sentry-coupled) |
-| `next.config.mjs` | Sentry `withSentryConfig` wrapper preserved |
-| `sentry.client.config.ts` | **RESTORED** (from `portfolio/`) |
-| `sentry.server.config.ts` | **RESTORED** |
-| `sentry.edge.config.ts` | **RESTORED** |
-| `app/sentry-example-page/page.jsx` | **RESTORED** |
-| `app/api/sentry-example-api/route.js` | **RESTORED** |
-| `.eslintrc.json` | **DELETED** |
-| `eslint.config.mjs` | **NEW** flat config |
-| `tsconfig.json` | `target: ES2022` |
-| `README.md` | This file |
+- `tailwindcss/lib/util/flattenColorPalette` di-replace dengan inline function (Tailwind 4 path private)
+- `tsconfig.json` Next 16 auto-adds `jsx: react-jsx` + `.next/dev/types/**/*.ts` (after install)
+- `data/store.json` is NOT used (MySQL only)
+- Static export **tidak kompatibel** dengan MySQL backend (uses `force-dynamic`)
 
-All components, data, lib, and public assets are **identical** to `portfolio/`.
+## Run Commands
 
-## Known Warnings
-
-- `tailwindcss/lib/util/flattenColorPalette` is a private import path. Works in Tailwind 4 via `@config` compat but may log deprecation warnings. To silence: rewrite the custom `bg-grid`/`bg-dot` plugins as Tailwind 4 `@plugin` or `@utility` directives in CSS.
-- **Sentry v7 + Next 16** — Sentry v7 was designed for Next 13/14. With Next 16 + React 19, `withSentryConfig` may emit deprecation warnings or fail at build time. If issues arise, upgrade path:
-  - `npm i @sentry/nextjs@^8` then follow [v7→v8 migration](https://docs.sentry.io/platforms/javascript/guides/nextjs/migration/v7-to-v8/)
-  - Or `npm i @sentry/nextjs@^9` (LTS) / `^10` (latest) — both officially support Next 16
-
-## Preserved From `portfolio/`
-
-All original Sentry files kept verbatim:
-- `sentry.client.config.ts`
-- `sentry.server.config.ts`
-- `sentry.edge.config.ts`
-- `app/sentry-example-page/page.jsx`
-- `app/api/sentry-example-api/route.js`
-- `withSentryConfig` wrapper in `next.config.mjs`
-- Original DSN + org/project IDs (`javascript-mastery` / `javascript-nextjs`)
-
-## Removed
-
-- `.eslintrc.json` (replaced by `eslint.config.mjs` — required by ESLint 10)
+```bash
+npm run dev      # Development
+npm run build    # Production build
+npm run start    # Production server
+npm run lint     # ESLint flat config
+npm run deploy   # Vercel deploy
+```

@@ -2,10 +2,16 @@
 
 import React from "react";
 
-import { companies, testimonials } from "@/data";
+import type { Company, Testimonial } from "@/lib/data";
 import { InfiniteMovingCards } from "./ui/InfiniteCards";
 
-const Clients = () => {
+const Clients = ({
+  testimonials,
+  companies,
+}: {
+  testimonials: Testimonial[];
+  companies: Company[];
+}) => {
   return (
     <section id="testimonials" className="py-20">
       <h1 className="heading">

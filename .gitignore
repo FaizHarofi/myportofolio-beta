@@ -37,3 +37,27 @@ next-env.d.ts
 
 # Sentry Config File
 .sentryclirc
+
+# IDE / Editor
+.vscode/
+.idea/
+*.code-workspace
+*.swp
+*.swo
+*~
+
+# OS
+Thumbs.db
+ehthumbs.db
+.AppleDouble
+.LSOverride
+
+# Environment files (all variants)
+.env
+.env.*.local
+.env.production.local
+.env.test.local
+
+# Cache
+.cache/
+.eslintcache

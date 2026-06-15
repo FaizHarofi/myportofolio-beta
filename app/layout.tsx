@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 
 import "./globals.css";
 import { ThemeProvider } from "./provider";
+import { ContextGuard } from "@/components/ContextGuard";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -28,14 +29,11 @@ export default function RootLayout({
         <link rel="icon" href="/jsm-logo.png" sizes="any" />
       </head>
       <body suppressHydrationWarning className={inter.className}>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="dark"
-          enableSystem
-          disableTransitionOnChange
-        >
-          {children}
-        </ThemeProvider>
+        <ContextGuard>
+          <ThemeProvider>
+            {children}
+          </ThemeProvider>
+        </ContextGuard>
       </body>
     </html>
   );

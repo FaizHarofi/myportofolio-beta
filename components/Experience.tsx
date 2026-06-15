@@ -1,9 +1,9 @@
 import React from "react";
 
-import { workExperience } from "@/data";
+import type { Experience as ExperienceItem } from "@/lib/data";
 import { Button } from "./ui/MovingBorders";
 
-const Experience = () => {
+const Experience = ({ items }: { items: ExperienceItem[] }) => {
   return (
     <div className="py-20 w-full">
       <h1 className="heading">
@@ -11,7 +11,7 @@ const Experience = () => {
       </h1>
 
       <div className="w-full mt-12 grid lg:grid-cols-4 grid-cols-1 gap-10">
-        {workExperience.map((card) => (
+        {items.map((card) => (
           <Button
             key={card.id}
             duration={Math.floor(Math.random() * 10000) + 10000}
@@ -35,7 +35,7 @@ const Experience = () => {
                   {card.title}
                 </h1>
                 <p className="text-start text-white-100 mt-3 font-semibold">
-                  {card.desc}
+                  {card.description}
                 </p>
               </div>
             </div>
