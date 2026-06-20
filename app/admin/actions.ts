@@ -1,0 +1,605 @@
+"use server";
+
+import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
+import { mkdir, unlink, writeFile } from "fs/promises";
+import { join, resolve } from "path";
+import {
+  checkPassword,
+  clearSessionCookie,
+  createSessionToken,
+  setSessionCookie,
+} from "@/lib/auth";
+import {
+  createCompany,
+  createEducation,
+  createExperience,
+  createGridItem,
+  createNav,
+  createProject,
+  createService,
+  createSkill,
+  createSocial,
+  createTestimonial,
+  deleteCompany,
+  deleteEducation,
+  deleteExperience,
+  deleteGridItem,
+  deleteNav,
+  deleteProject,
+  deleteService,
+  deleteSkill,
+  deleteSocial,
+  deleteTestimonial,
+  updateCompany,
+  updateEducation,
+  updateExperience,
+  updateGridItem,
+  updateNav,
+  updateProject,
+  updateService,
+  updateSkill,
+  updateSocial,
+  updateTestimonial,
+  updateProfile,
+} from "@/lib/data";
+import { createCover, createTechIcon, deleteCover, deleteTechIcon, syncCoversFromDisk, syncTechIconsFromDisk } from "@/lib/icons-data";
+
+const ICONS_UPLOAD_DIR = join(process.cwd(), "public", "uploads", "tech", "icon");
+const COVERS_UPLOAD_DIR = join(process.cwd(), "public", "uploads", "covers");
+const AVATARS_UPLOAD_DIR = join(process.cwd(), "public", "uploads", "avatars");
+const MAX_AVATAR_SIZE = 3 * 1024 * 1024;
+const MAX_ICON_SIZE = 100 * 1024;
+const MAX_COVER_SIZE = 2 * 1024 * 1024;
+
+function slugify(text: string): string {
+  return (
+    text
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "icon"
+  );
+}
+
+async function requireAuth() {
+  const { isAuthenticated } = await import("@/lib/auth");
+  if (!(await isAuthenticated())) {
+    redirect("/admin/login");
+  }
+}
+
+export async function loginAction(formData: FormData) {
+  const password = String(formData.get("password") ?? "");
+  if (!checkPassword(password)) {
+    redirect("/admin/login?error=1");
+  }
+  await setSessionCookie(createSessionToken());
+  redirect("/admin");
+}
+
+export async function logoutAction() {
+  await clearSessionCookie();
+  redirect("/admin/login");
+}
+
+function asString(v: FormDataEntryValue | null): string {
+  return typeof v === "string" ? v : "";
+}
+
+function asStringArrayMulti(formData: FormData, name: string): string[] {
+  return formData
+    .getAll(name)
+    .filter((v): v is string => typeof v === "string")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function sanitizeNavLink(raw: string): string {
+  const v = raw.trim();
+  if (!v) return "";
+  if (/^(https?:|mailto:|tel:)/i.test(v)) return v;
+  if (v.startsWith("/")) {
+    if (v.startsWith("/#") || v.length > 1 && !v.startsWith("//")) return v;
+    return v;
+  }
+  if (v.startsWith("#")) {
+    const idx = v.indexOf("#", 1);
+    const anchor = idx === -1 ? v : v.slice(0, idx);
+    return "/" + anchor;
+  }
+  return "#" + v.replace(/^#+/, "");
+}
+
+export async function createProjectAction(formData: FormData) {
+  await requireAuth();
+  await createProject({
+    title: asString(formData.get("title")),
+    des: asString(formData.get("des")),
+    img: asString(formData.get("img")),
+    iconLists: asStringArrayMulti(formData, "iconLists"),
+    link: asString(formData.get("link")),
+  });
+  revalidatePath("/admin/projects");
+}
+
+export async function updateProjectAction(id: number, formData: FormData) {
+  await requireAuth();
+  await updateProject(id, {
+    title: asString(formData.get("title")),
+    des: asString(formData.get("des")),
+    img: asString(formData.get("img")),
+    iconLists: asStringArrayMulti(formData, "iconLists"),
+    link: asString(formData.get("link")),
+  });
+  revalidatePath("/admin/projects");
+}
+
+export async function deleteProjectAction(id: number) {
+  await requireAuth();
+  await deleteProject(id);
+  revalidatePath("/admin/projects");
+}
+
+export async function createGridItemAction(formData: FormData) {
+  await requireAuth();
+  await createGridItem({
+    title: asString(formData.get("title")),
+    description: asString(formData.get("description")),
+    className: asString(formData.get("className")),
+    imgClassName: asString(formData.get("imgClassName")),
+    titleClassName: asString(formData.get("titleClassName")),
+    img: asString(formData.get("img")),
+    spareImg: asString(formData.get("spareImg")),
+  });
+  revalidatePath("/admin/grid-items");
+}
+
+export async function updateGridItemAction(id: number, formData: FormData) {
+  await requireAuth();
+  await updateGridItem(id, {
+    title: asString(formData.get("title")),
+    description: asString(formData.get("description")),
+    className: asString(formData.get("className")),
+    imgClassName: asString(formData.get("imgClassName")),
+    titleClassName: asString(formData.get("titleClassName")),
+    img: asString(formData.get("img")),
+    spareImg: asString(formData.get("spareImg")),
+  });
+  revalidatePath("/admin/grid-items");
+}
+
+export async function deleteGridItemAction(id: number) {
+  await requireAuth();
+  await deleteGridItem(id);
+  revalidatePath("/admin/grid-items");
+}
+
+export async function createTestimonialAction(formData: FormData) {
+  await requireAuth();
+  await createTestimonial({
+    quote: asString(formData.get("quote")),
+    name: asString(formData.get("name")),
+    title: asString(formData.get("title")),
+  });
+  revalidatePath("/admin/testimonials");
+}
+
+export async function updateTestimonialAction(id: number, formData: FormData) {
+  await requireAuth();
+  await updateTestimonial(id, {
+    quote: asString(formData.get("quote")),
+    name: asString(formData.get("name")),
+    title: asString(formData.get("title")),
+  });
+  revalidatePath("/admin/testimonials");
+}
+
+export async function deleteTestimonialAction(id: number) {
+  await requireAuth();
+  await deleteTestimonial(id);
+  revalidatePath("/admin/testimonials");
+}
+
+export async function createCompanyAction(formData: FormData) {
+  await requireAuth();
+  await createCompany({
+    name: asString(formData.get("name")),
+    img: asString(formData.get("img")),
+    nameImg: asString(formData.get("nameImg")),
+  });
+  revalidatePath("/admin/companies");
+}
+
+export async function updateCompanyAction(id: number, formData: FormData) {
+  await requireAuth();
+  await updateCompany(id, {
+    name: asString(formData.get("name")),
+    img: asString(formData.get("img")),
+    nameImg: asString(formData.get("nameImg")),
+  });
+  revalidatePath("/admin/companies");
+}
+
+export async function deleteCompanyAction(id: number) {
+  await requireAuth();
+  await deleteCompany(id);
+  revalidatePath("/admin/companies");
+}
+
+export async function createExperienceAction(formData: FormData) {
+  await requireAuth();
+  await createExperience({
+    title: asString(formData.get("title")),
+    description: asString(formData.get("description")),
+    className: asString(formData.get("className")),
+    thumbnail: asString(formData.get("thumbnail")),
+  });
+  revalidatePath("/admin/experience");
+}
+
+export async function updateExperienceAction(id: number, formData: FormData) {
+  await requireAuth();
+  await updateExperience(id, {
+    title: asString(formData.get("title")),
+    description: asString(formData.get("description")),
+    className: asString(formData.get("className")),
+    thumbnail: asString(formData.get("thumbnail")),
+  });
+  revalidatePath("/admin/experience");
+}
+
+export async function deleteExperienceAction(id: number) {
+  await requireAuth();
+  await deleteExperience(id);
+  revalidatePath("/admin/experience");
+}
+
+export async function createNavAction(formData: FormData) {
+  await requireAuth();
+  await createNav({
+    name: asString(formData.get("name")),
+    link: sanitizeNavLink(asString(formData.get("link"))),
+  });
+  revalidatePath("/admin/nav");
+}
+
+export async function updateNavAction(id: number, formData: FormData) {
+  await requireAuth();
+  await updateNav(id, {
+    name: asString(formData.get("name")),
+    link: sanitizeNavLink(asString(formData.get("link"))),
+  });
+  revalidatePath("/admin/nav");
+}
+
+export async function deleteNavAction(id: number) {
+  await requireAuth();
+  await deleteNav(id);
+  revalidatePath("/admin/nav");
+}
+
+export async function createTechIconAction(formData: FormData) {
+  await requireAuth();
+  const label = asString(formData.get("label"));
+  const file = formData.get("file");
+
+  if (!label) {
+    redirect("/admin/assets?error=nolabel");
+  }
+
+  if (!(file instanceof File) || file.size === 0) {
+    redirect("/admin/assets?error=nofile");
+  }
+
+  if (file.size > MAX_ICON_SIZE) {
+    redirect("/admin/assets?error=toobig");
+  }
+
+  const raw = await file.text();
+
+  const has24Size =
+    /width\s*=\s*["']24["']/.test(raw) &&
+    /height\s*=\s*["']24["']/.test(raw);
+  const has24ViewBox =
+    /viewBox\s*=\s*["']0\s+0\s+24\s+24["']/.test(raw);
+
+  if (!has24Size && !has24ViewBox) {
+    redirect("/admin/assets?error=not24x24");
+  }
+
+  const cleaned = raw
+    .replace(/^\uFEFF/, "")
+    .replace(/^<\?xml[\s\S]*?\?>\s*/, "")
+    .replace(/^<!DOCTYPE[\s\S]*?>\s*/, "")
+    .replace(/^<!--[\s\S]*?-->\s*/, "")
+    .trim();
+
+  if (!/^<svg\b[\s\S]*<\/svg>\s*$/i.test(cleaned)) {
+    redirect("/admin/assets?error=notsvg");
+  }
+
+  const baseSlug = slugify(label);
+  const filename = `${baseSlug}-${Date.now().toString(36)}.svg`;
+
+  await mkdir(ICONS_UPLOAD_DIR, { recursive: true });
+  await writeFile(join(ICONS_UPLOAD_DIR, filename), cleaned, "utf-8");
+
+  try {
+    await createTechIcon({
+      label,
+      path: `/uploads/tech/icon/${filename}`,
+    });
+    console.log(
+      `[createTechIconAction] inserted: label="${label}" path="/uploads/tech/icon/${filename}"`
+    );
+  } catch (err) {
+    console.error("[createTechIconAction] DB insert FAILED:", err);
+    // Try to clean up the orphaned file so we don't leave a dangling asset
+    try {
+      await unlink(join(ICONS_UPLOAD_DIR, filename));
+    } catch {
+      /* ignore */
+    }
+    redirect(
+      `/admin/assets?error=dbinsert&msg=${encodeURIComponent(
+        err instanceof Error ? err.message : String(err)
+      )}`
+    );
+  }
+
+  redirect("/admin/assets?success=1");
+}
+
+export async function deleteTechIconAction(id: number) {
+  await requireAuth();
+  await deleteTechIcon(id);
+}
+
+export async function createSkillAction(formData: FormData) {
+  await requireAuth();
+  await createSkill({
+    group_name: asString(formData.get("group_name")).trim() || "Other",
+    label: asString(formData.get("label")),
+  });
+  revalidatePath("/admin/skills");
+}
+
+export async function updateSkillAction(id: number, formData: FormData) {
+  await requireAuth();
+  await updateSkill(id, {
+    group_name: asString(formData.get("group_name")).trim() || "Other",
+    label: asString(formData.get("label")),
+  });
+  revalidatePath("/admin/skills");
+}
+
+export async function deleteSkillAction(id: number) {
+  await requireAuth();
+  await deleteSkill(id);
+  revalidatePath("/admin/skills");
+}
+
+export async function createEducationAction(formData: FormData) {
+  await requireAuth();
+  await createEducation({
+    school: asString(formData.get("school")),
+    period: asString(formData.get("period")),
+    level: asString(formData.get("level")),
+    description: asString(formData.get("description")),
+  });
+  revalidatePath("/admin/educations");
+}
+
+export async function updateEducationAction(id: number, formData: FormData) {
+  await requireAuth();
+  await updateEducation(id, {
+    school: asString(formData.get("school")),
+    period: asString(formData.get("period")),
+    level: asString(formData.get("level")),
+    description: asString(formData.get("description")),
+  });
+  revalidatePath("/admin/educations");
+}
+
+export async function deleteEducationAction(id: number) {
+  await requireAuth();
+  await deleteEducation(id);
+  revalidatePath("/admin/educations");
+}
+
+export async function createServiceAction(formData: FormData) {
+  await requireAuth();
+  await createService({
+    icon: asString(formData.get("icon")) || "Sparkles",
+    title: asString(formData.get("title")),
+    description: asString(formData.get("description")),
+    tone: asString(formData.get("tone")) || "violet",
+  });
+  revalidatePath("/admin/services");
+}
+
+export async function updateServiceAction(id: number, formData: FormData) {
+  await requireAuth();
+  await updateService(id, {
+    icon: asString(formData.get("icon")) || "Sparkles",
+    title: asString(formData.get("title")),
+    description: asString(formData.get("description")),
+    tone: asString(formData.get("tone")) || "violet",
+  });
+  revalidatePath("/admin/services");
+}
+
+export async function deleteServiceAction(id: number) {
+  await requireAuth();
+  await deleteService(id);
+  revalidatePath("/admin/services");
+}
+
+export async function createSocialAction(formData: FormData) {
+  await requireAuth();
+  await createSocial({
+    img: asString(formData.get("img")),
+    link: asString(formData.get("link")) || null,
+  });
+  revalidatePath("/admin/social");
+}
+
+export async function updateSocialAction(id: number, formData: FormData) {
+  await requireAuth();
+  await updateSocial(id, {
+    img: asString(formData.get("img")),
+    link: asString(formData.get("link")) || null,
+  });
+  revalidatePath("/admin/social");
+}
+
+export async function deleteSocialAction(id: number) {
+  await requireAuth();
+  await deleteSocial(id);
+  revalidatePath("/admin/social");
+}
+
+export async function createCoverImageAction(formData: FormData) {
+  await requireAuth();
+  const label = asString(formData.get("label"));
+  const file = formData.get("file");
+
+  if (!label) {
+    redirect("/admin/assets?cover_error=nolabel");
+  }
+
+  if (!(file instanceof File) || file.size === 0) {
+    redirect("/admin/assets?cover_error=nofile");
+  }
+
+  if (file.size > MAX_COVER_SIZE) {
+    redirect("/admin/assets?cover_error=toobig");
+  }
+
+  const allowedTypes = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/svg+xml"];
+  if (!allowedTypes.includes(file.type)) {
+    redirect("/admin/assets?cover_error=badtype");
+  }
+
+  const ext = (() => {
+    const t = file.type;
+    if (t === "image/png") return "png";
+    if (t === "image/jpeg" || t === "image/jpg") return "jpg";
+    if (t === "image/webp") return "webp";
+    if (t === "image/svg+xml") return "svg";
+    return "bin";
+  })();
+
+  const baseSlug = slugify(label) || "cover";
+  const filename = `${baseSlug}-${Date.now().toString(36)}.${ext}`;
+  const buffer = Buffer.from(await file.arrayBuffer());
+
+  await mkdir(COVERS_UPLOAD_DIR, { recursive: true });
+  await writeFile(join(COVERS_UPLOAD_DIR, filename), buffer);
+
+  await createCover({
+    label,
+    path: `/uploads/covers/${filename}`,
+  });
+
+  redirect("/admin/assets?cover_success=1");
+}
+
+export async function deleteCoverImageAction(id: number) {
+  await requireAuth();
+  await deleteCover(id);
+  revalidatePath("/admin/assets");
+}
+
+export async function syncTechIconsAction() {
+  await requireAuth();
+  const result = await syncTechIconsFromDisk();
+  revalidatePath("/admin/assets");
+  redirect(
+    `/admin/assets?sync_icons=${result.added}&sync_icons_skipped=${result.skipped}`
+  );
+}
+
+export async function syncCoverImagesAction() {
+  await requireAuth();
+  const result = await syncCoversFromDisk();
+  revalidatePath("/admin/assets");
+  redirect(
+    `/admin/assets?sync_covers=${result.added}&sync_covers_skipped=${result.skipped}`
+  );
+}
+
+export async function updateProfileAction(formData: FormData) {
+  await requireAuth();
+  await updateProfile({
+    name: asString(formData.get("name")) || "Anonymous",
+    role: asString(formData.get("role")) || "",
+    location: asString(formData.get("location")) || "",
+    avatar: asString(formData.get("avatar")) || null,
+    bio1: asString(formData.get("bio1")) || null,
+    bio2: asString(formData.get("bio2")) || null,
+  });
+  redirect("/admin/profile?success=1");
+}
+
+export async function uploadAvatarAction(formData: FormData) {
+  await requireAuth();
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    redirect("/admin/profile?avatar_error=nofile");
+  }
+
+  if (file.size > MAX_AVATAR_SIZE) {
+    redirect("/admin/profile?avatar_error=toobig");
+  }
+
+  const allowed = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
+  if (!allowed.includes(file.type)) {
+    redirect("/admin/profile?avatar_error=badtype");
+  }
+
+  const ext = (() => {
+    const t = file.type;
+    if (t === "image/png") return "png";
+    if (t === "image/webp") return "webp";
+    return "jpg";
+  })();
+
+  const baseSlug = "avatar";
+  const filename = `${baseSlug}-${Date.now().toString(36)}.${ext}`;
+  const buffer = Buffer.from(await file.arrayBuffer());
+
+  // Delete previous avatar file (best-effort) before writing new one
+  try {
+    const { getProfile, updateProfile } = await import("@/lib/data");
+    const current = await getProfile();
+    if (current.avatar) {
+      const uploadDir = resolve(process.cwd(), "public", "uploads", "avatars");
+      const fileAbs = resolve(
+        process.cwd(),
+        "public",
+        current.avatar.replace(/^\//, "")
+      );
+      if (fileAbs.startsWith(uploadDir)) {
+        try {
+          await unlink(fileAbs);
+        } catch {
+          /* missing */
+        }
+      }
+    }
+    await mkdir(AVATARS_UPLOAD_DIR, { recursive: true });
+    await writeFile(join(AVATARS_UPLOAD_DIR, filename), buffer);
+    await updateProfile({
+      ...current,
+      avatar: `/uploads/avatars/${filename}`,
+    });
+  } catch (err) {
+    console.error("[uploadAvatarAction]", err);
+    redirect("/admin/profile?avatar_error=db");
+  }
+
+  revalidatePath("/admin/profile");
+  revalidatePath("/info");
+  redirect("/admin/profile?avatar_success=1");
+}

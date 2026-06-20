@@ -6,19 +6,27 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "setup:ui": "npx shadcn@latest registry add @unlumen-ui && npx shadcn@latest add @unlumen-ui/primitives-animate-cursor",
     "lint": "next lint",
-    "deploy": "vercel --prod"
+    "deploy": "vercel --prod",
+    "optimize:svgs": "svgo public/ --config svgo.config.js",
+    "db:init": "node scripts/init-db.mjs",
+    "db:backup": "node scripts/backup-db.mjs",
+    "db:check": "node --experimental-strip-types -e \"import('./lib/db.ts').then(async ({getDb}) => { const db = await getDb(); const [rows] = await db.query('SHOW TABLES'); console.log(rows); await db.end(); })\""
   },
   "dependencies": {
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.6.1",
     "@tabler/icons-react": "^3.44.0",
     "@types/three": "^0.184.1",
+    "bcryptjs": "^3.0.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "dotenv": "^17.4.2",
     "framer-motion": "^12.40.0",
     "lucide-react": "^1.18.0",
     "mini-svg-data-uri": "^1.4.4",
+    "mysql2": "^3.11.5",
     "next": "^16.2.9",
     "next-themes": "^0.4.6",
     "react": "^19.2.7",
@@ -43,6 +51,7 @@
     "eslint": "^10.5.0",
     "eslint-config-next": "^16.2.9",
     "postcss": "^8.5.15",
+    "svgo": "^4.0.1",
     "tailwindcss": "^4.3.1",
     "typescript": "^6.0.3"
   }

@@ -75,6 +75,20 @@
   button {
     @apply active:outline-none;
   }
+
+  img,
+  svg,
+  [data-protect] {
+    -webkit-user-drag: none;
+    -moz-user-drag: none;
+    -o-user-drag: none;
+    user-drag: none;
+    -webkit-touch-callout: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+  }
 }
 
 @layer utilities {
