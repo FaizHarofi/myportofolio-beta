@@ -5,11 +5,14 @@ import MagicButton from "./MagicButton";
 const Footer = ({
   socials,
 }: {
-  socials: { id: number; img: string }[];
+  socials: { id: number; img: string; link: string | null }[];
 }) => {
   return (
-    <footer className="w-full pt-20 pb-10" id="contact">
-      <div className="w-full absolute left-0 -bottom-72 min-h-96">
+    <footer
+      className="relative w-full pt-20 pb-10 overflow-hidden"
+      id="contact"
+    >
+      <div className="absolute inset-x-0 bottom-0 h-40 pointer-events-none select-none">
         <img
           src="/footer-grid.svg"
           alt="grid"
@@ -22,11 +25,11 @@ const Footer = ({
           Ready to take <span className="text-purple">your</span> digital
           presence to the next level?
         </h1>
-        <p className="text-white-200 md:mt-10 my-5 text-center">
+        <p className="text-white md:mt-10 my-5 text-center">
           Reach out to me today and let&apos;s discuss how I can help you
           achieve your goals.
         </p>
-        <a href="mailto:contact@jsmastery.pro">
+        <a href="mailto:faizsjawa@gmail.com">
           <MagicButton
             title="Let's get in touch"
             icon={<FaLocationArrow />}
@@ -40,18 +43,38 @@ const Footer = ({
         </p>
 
         <div className="flex items-center md:gap-3 gap-6">
-          {socials.map((info) => (
-            <div
-              key={info.id}
-              className="w-10 h-10 cursor-pointer flex justify-center items-center backdrop-filter backdrop-blur-lg saturate-180 bg-opacity-75 bg-black-200 rounded-lg border border-black-300"
-            >
-              <img src={info.img} alt="icons" width={20} height={20} />
-            </div>
-          ))}
+          {socials.map((info) => {
+            const inner = (
+              <div className="w-10 h-10 cursor-pointer flex justify-center items-center backdrop-filter backdrop-blur-lg saturate-180 bg-opacity-75 bg-black-200 rounded-lg border border-black-300">
+                <img src={info.img} alt="icons" width={20} height={20} />
+              </div>
+            );
+            return info.link ? (
+              <a
+                key={info.id}
+                href={info.link}
+                target="_blank"
+                rel="noreferrer"
+                aria-label={hostname(info.link)}
+              >
+                {inner}
+              </a>
+            ) : (
+              <span key={info.id}>{inner}</span>
+            );
+          })}
         </div>
       </div>
     </footer>
   );
 };
+
+function hostname(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "") || url;
+  } catch {
+    return url;
+  }
+}
 
 export default Footer;

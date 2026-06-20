@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { FaLocationArrow } from "react-icons/fa6";
+import { FolderKanban, Rocket, Sparkles } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import type { Project } from "@/lib/data";
@@ -49,10 +50,14 @@ const RecentProjects = ({ projects }: { projects: Project[] }) => {
         A small selection of{" "}
         <span className="text-purple">recent projects</span>
       </h1>
-      <div
-        ref={containerRef}
-        className="scroller relative overflow-hidden [mask-image:linear-gradient(to_right,transparent,white_20%,white_80%,transparent)]"
-      >
+
+      {projects.length === 0 ? (
+        <ProjectsEmpty />
+      ) : (
+        <div
+          ref={containerRef}
+          className="scroller relative overflow-hidden [mask-image:linear-gradient(to_right,transparent,white_20%,white_80%,transparent)]"
+        >
         <div
           ref={scrollerRef}
           className={cn(
@@ -137,8 +142,46 @@ const RecentProjects = ({ projects }: { projects: Project[] }) => {
           })}
         </div>
       </div>
+      )}
     </div>
   );
 };
+
+function ProjectsEmpty() {
+  return (
+    <div className="relative mx-auto mt-2 w-full max-w-3xl overflow-hidden rounded-2xl border border-dashed border-white/10 bg-slate-900/30 px-6 py-14 text-center sm:px-10 sm:py-16">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 -z-0"
+      >
+        <div className="absolute -top-16 left-1/3 h-40 w-40 rounded-full bg-violet-500/10 blur-3xl" />
+        <div className="absolute -bottom-16 right-1/3 h-32 w-32 rounded-full bg-sky-500/10 blur-3xl" />
+      </div>
+
+      <div className="relative mx-auto inline-flex">
+        <div className="absolute inset-0 rounded-full bg-gradient-to-br from-violet-500/30 to-sky-500/30 blur-xl" />
+        <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500/20 to-sky-500/10 border border-white/10 text-violet-300">
+          <FolderKanban size={26} strokeWidth={1.5} />
+        </div>
+        <span className="absolute -right-1 -top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-sky-500 text-white shadow-lg shadow-violet-500/30">
+          <Rocket size={11} strokeWidth={2.5} />
+        </span>
+      </div>
+
+      <h3 className="relative mt-5 text-xl font-bold text-white sm:text-2xl">
+        No projects to showcase yet
+      </h3>
+      <p className="relative mx-auto mt-2 max-w-md text-sm leading-relaxed text-slate-400 sm:text-[15px]">
+        The project shelf is empty for now. New work will show up here as
+        it&apos;s published — keep an eye on this space.
+      </p>
+
+      <div className="relative mt-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-slate-950/20 px-3 py-1.5 text-[11px] font-medium text-slate-400">
+        <Sparkles size={11} className="text-violet-300" />
+        Coming soon
+      </div>
+    </div>
+  );
+}
 
 export default RecentProjects;

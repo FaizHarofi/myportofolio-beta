@@ -6,9 +6,13 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "setup:ui": "npx shadcn@latest registry add @unlumen-ui && npx shadcn@latest add @unlumen-ui/primitives-animate-cursor",
     "lint": "next lint",
     "deploy": "vercel --prod",
-    "optimize:svgs": "svgo public/ --config svgo.config.js"
+    "optimize:svgs": "svgo public/ --config svgo.config.js",
+    "db:init": "node scripts/init-db.mjs",
+    "db:backup": "node scripts/backup-db.mjs",
+    "db:check": "node --experimental-strip-types -e \"import('./lib/db.ts').then(async ({getDb}) => { const db = await getDb(); const [rows] = await db.query('SHOW TABLES'); console.log(rows); await db.end(); })\""
   },
   "dependencies": {
     "@react-three/drei": "^10.7.7",
@@ -18,6 +22,7 @@
     "bcryptjs": "^3.0.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "dotenv": "^17.4.2",
     "framer-motion": "^12.40.0",
     "lucide-react": "^1.18.0",
     "mini-svg-data-uri": "^1.4.4",

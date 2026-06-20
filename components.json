@@ -13,5 +13,8 @@
   "aliases": {
     "components": "@/components",
     "utils": "@/lib/utils"
+  },
+  "registries": {
+    "@unlumen-ui": "https://ui.unlumen.com/r/{name}.json"
   }
 }

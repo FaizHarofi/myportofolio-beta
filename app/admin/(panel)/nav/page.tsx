@@ -10,7 +10,12 @@ import {
 
 const fields: Field[] = [
   { name: "name", label: "Label", placeholder: "About" },
-  { name: "link", label: "Anchor / link", placeholder: "#about" },
+  {
+    name: "link",
+    label: "Anchor / link",
+    placeholder: "#about",
+    hint: "Use #section for in-page anchors, /path for routes, or full https:// URL.",
+  },
 ];
 
 export default async function AdminNav() {

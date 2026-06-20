@@ -8,8 +8,9 @@ import { ContextGuard } from "@/components/ContextGuard";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Adrian's Portfolio",
-  description: "Modern & Minimal JS Mastery Portfolio",
+  title: "FaizHarofi's Portfolio",
+  description:
+    "About FaizHarofi — web developer from Pekanbaru, Riau, Indonesia.",
 };
 
 export const viewport: Viewport = {
@@ -30,9 +31,7 @@ export default function RootLayout({
       </head>
       <body suppressHydrationWarning className={inter.className}>
         <ContextGuard>
-          <ThemeProvider>
-            {children}
-          </ThemeProvider>
+          <ThemeProvider>{children}</ThemeProvider>
         </ContextGuard>
       </body>
     </html>

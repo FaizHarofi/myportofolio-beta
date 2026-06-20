@@ -3,8 +3,20 @@ import { createHmac, timingSafeEqual } from "crypto";
 import bcrypt from "bcryptjs";
 
 const COOKIE_NAME = "admin_session";
-const SECRET = process.env.ADMIN_SECRET || "dev-only-change-in-production-32-bytes";
-const PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
+
+function requireEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(
+      `[portofolio-beta] Missing required env var: ${name}. ` +
+        `Add it to your .env file.`
+    );
+  }
+  return value;
+}
+
+const PASSWORD = requireEnv("ADMIN_PASSWORD");
+const SECRET = requireEnv("ADMIN_SECRET");
 const SESSION_DAYS = 7;
 
 function getHash(): string {

@@ -2,8 +2,8 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { mkdir, writeFile } from "fs/promises";
-import { join } from "path";
+import { mkdir, unlink, writeFile } from "fs/promises";
+import { join, resolve } from "path";
 import {
   checkPassword,
   clearSessionCookie,
@@ -12,31 +12,45 @@ import {
 } from "@/lib/auth";
 import {
   createCompany,
+  createEducation,
   createExperience,
   createGridItem,
   createNav,
   createProject,
+  createService,
+  createSkill,
   createSocial,
   createTestimonial,
   deleteCompany,
+  deleteEducation,
   deleteExperience,
   deleteGridItem,
   deleteNav,
   deleteProject,
+  deleteService,
+  deleteSkill,
   deleteSocial,
   deleteTestimonial,
   updateCompany,
+  updateEducation,
   updateExperience,
   updateGridItem,
   updateNav,
   updateProject,
+  updateService,
+  updateSkill,
   updateSocial,
   updateTestimonial,
+  updateProfile,
 } from "@/lib/data";
-import { createTechIcon, deleteTechIcon } from "@/lib/icons-data";
+import { createCover, createTechIcon, deleteCover, deleteTechIcon, syncCoversFromDisk, syncTechIconsFromDisk } from "@/lib/icons-data";
 
-const ICONS_UPLOAD_DIR = join(process.cwd(), "public", "icons", "tech");
+const ICONS_UPLOAD_DIR = join(process.cwd(), "public", "uploads", "tech", "icon");
+const COVERS_UPLOAD_DIR = join(process.cwd(), "public", "uploads", "covers");
+const AVATARS_UPLOAD_DIR = join(process.cwd(), "public", "uploads", "avatars");
+const MAX_AVATAR_SIZE = 3 * 1024 * 1024;
 const MAX_ICON_SIZE = 100 * 1024;
+const MAX_COVER_SIZE = 2 * 1024 * 1024;
 
 function slugify(text: string): string {
   return (
@@ -78,6 +92,22 @@ function asStringArrayMulti(formData: FormData, name: string): string[] {
     .filter((v): v is string => typeof v === "string")
     .map((s) => s.trim())
     .filter(Boolean);
+}
+
+function sanitizeNavLink(raw: string): string {
+  const v = raw.trim();
+  if (!v) return "";
+  if (/^(https?:|mailto:|tel:)/i.test(v)) return v;
+  if (v.startsWith("/")) {
+    if (v.startsWith("/#") || v.length > 1 && !v.startsWith("//")) return v;
+    return v;
+  }
+  if (v.startsWith("#")) {
+    const idx = v.indexOf("#", 1);
+    const anchor = idx === -1 ? v : v.slice(0, idx);
+    return "/" + anchor;
+  }
+  return "#" + v.replace(/^#+/, "");
 }
 
 export async function createProjectAction(formData: FormData) {
@@ -224,33 +254,11 @@ export async function deleteExperienceAction(id: number) {
   revalidatePath("/admin/experience");
 }
 
-export async function createSocialAction(formData: FormData) {
-  await requireAuth();
-  await createSocial({
-    img: asString(formData.get("img")),
-  });
-  revalidatePath("/admin/social");
-}
-
-export async function updateSocialAction(id: number, formData: FormData) {
-  await requireAuth();
-  await updateSocial(id, {
-    img: asString(formData.get("img")),
-  });
-  revalidatePath("/admin/social");
-}
-
-export async function deleteSocialAction(id: number) {
-  await requireAuth();
-  await deleteSocial(id);
-  revalidatePath("/admin/social");
-}
-
 export async function createNavAction(formData: FormData) {
   await requireAuth();
   await createNav({
     name: asString(formData.get("name")),
-    link: asString(formData.get("link")),
+    link: sanitizeNavLink(asString(formData.get("link"))),
   });
   revalidatePath("/admin/nav");
 }
@@ -259,7 +267,7 @@ export async function updateNavAction(id: number, formData: FormData) {
   await requireAuth();
   await updateNav(id, {
     name: asString(formData.get("name")),
-    link: asString(formData.get("link")),
+    link: sanitizeNavLink(asString(formData.get("link"))),
   });
   revalidatePath("/admin/nav");
 }
@@ -276,46 +284,322 @@ export async function createTechIconAction(formData: FormData) {
   const file = formData.get("file");
 
   if (!label) {
-    redirect("/admin/icons?error=nolabel");
+    redirect("/admin/assets?error=nolabel");
   }
 
   if (!(file instanceof File) || file.size === 0) {
-    redirect("/admin/icons?error=nofile");
+    redirect("/admin/assets?error=nofile");
   }
 
   if (file.size > MAX_ICON_SIZE) {
-    redirect("/admin/icons?error=toobig");
+    redirect("/admin/assets?error=toobig");
   }
 
-  const content = await file.text();
+  const raw = await file.text();
 
   const has24Size =
-    /width=["']24["']/.test(content) && /height=["']24["']/.test(content);
-  const has24ViewBox = /viewBox=["']0\s+0\s+24\s+24["']/.test(content);
+    /width\s*=\s*["']24["']/.test(raw) &&
+    /height\s*=\s*["']24["']/.test(raw);
+  const has24ViewBox =
+    /viewBox\s*=\s*["']0\s+0\s+24\s+24["']/.test(raw);
 
   if (!has24Size && !has24ViewBox) {
-    redirect("/admin/icons?error=not24x24");
+    redirect("/admin/assets?error=not24x24");
   }
 
-  if (!/^<svg[\s\S]*<\/svg>\s*$/i.test(content.trim())) {
-    redirect("/admin/icons?error=notsvg");
+  const cleaned = raw
+    .replace(/^\uFEFF/, "")
+    .replace(/^<\?xml[\s\S]*?\?>\s*/, "")
+    .replace(/^<!DOCTYPE[\s\S]*?>\s*/, "")
+    .replace(/^<!--[\s\S]*?-->\s*/, "")
+    .trim();
+
+  if (!/^<svg\b[\s\S]*<\/svg>\s*$/i.test(cleaned)) {
+    redirect("/admin/assets?error=notsvg");
   }
 
   const baseSlug = slugify(label);
   const filename = `${baseSlug}-${Date.now().toString(36)}.svg`;
 
   await mkdir(ICONS_UPLOAD_DIR, { recursive: true });
-  await writeFile(join(ICONS_UPLOAD_DIR, filename), content, "utf-8");
+  await writeFile(join(ICONS_UPLOAD_DIR, filename), cleaned, "utf-8");
 
-  await createTechIcon({
-    label,
-    path: `/icons/tech/${filename}`,
-  });
+  try {
+    await createTechIcon({
+      label,
+      path: `/uploads/tech/icon/${filename}`,
+    });
+    console.log(
+      `[createTechIconAction] inserted: label="${label}" path="/uploads/tech/icon/${filename}"`
+    );
+  } catch (err) {
+    console.error("[createTechIconAction] DB insert FAILED:", err);
+    // Try to clean up the orphaned file so we don't leave a dangling asset
+    try {
+      await unlink(join(ICONS_UPLOAD_DIR, filename));
+    } catch {
+      /* ignore */
+    }
+    redirect(
+      `/admin/assets?error=dbinsert&msg=${encodeURIComponent(
+        err instanceof Error ? err.message : String(err)
+      )}`
+    );
+  }
 
-  redirect("/admin/icons?success=1");
+  redirect("/admin/assets?success=1");
 }
 
 export async function deleteTechIconAction(id: number) {
   await requireAuth();
   await deleteTechIcon(id);
+}
+
+export async function createSkillAction(formData: FormData) {
+  await requireAuth();
+  await createSkill({
+    group_name: asString(formData.get("group_name")).trim() || "Other",
+    label: asString(formData.get("label")),
+  });
+  revalidatePath("/admin/skills");
+}
+
+export async function updateSkillAction(id: number, formData: FormData) {
+  await requireAuth();
+  await updateSkill(id, {
+    group_name: asString(formData.get("group_name")).trim() || "Other",
+    label: asString(formData.get("label")),
+  });
+  revalidatePath("/admin/skills");
+}
+
+export async function deleteSkillAction(id: number) {
+  await requireAuth();
+  await deleteSkill(id);
+  revalidatePath("/admin/skills");
+}
+
+export async function createEducationAction(formData: FormData) {
+  await requireAuth();
+  await createEducation({
+    school: asString(formData.get("school")),
+    period: asString(formData.get("period")),
+    level: asString(formData.get("level")),
+    description: asString(formData.get("description")),
+  });
+  revalidatePath("/admin/educations");
+}
+
+export async function updateEducationAction(id: number, formData: FormData) {
+  await requireAuth();
+  await updateEducation(id, {
+    school: asString(formData.get("school")),
+    period: asString(formData.get("period")),
+    level: asString(formData.get("level")),
+    description: asString(formData.get("description")),
+  });
+  revalidatePath("/admin/educations");
+}
+
+export async function deleteEducationAction(id: number) {
+  await requireAuth();
+  await deleteEducation(id);
+  revalidatePath("/admin/educations");
+}
+
+export async function createServiceAction(formData: FormData) {
+  await requireAuth();
+  await createService({
+    icon: asString(formData.get("icon")) || "Sparkles",
+    title: asString(formData.get("title")),
+    description: asString(formData.get("description")),
+    tone: asString(formData.get("tone")) || "violet",
+  });
+  revalidatePath("/admin/services");
+}
+
+export async function updateServiceAction(id: number, formData: FormData) {
+  await requireAuth();
+  await updateService(id, {
+    icon: asString(formData.get("icon")) || "Sparkles",
+    title: asString(formData.get("title")),
+    description: asString(formData.get("description")),
+    tone: asString(formData.get("tone")) || "violet",
+  });
+  revalidatePath("/admin/services");
+}
+
+export async function deleteServiceAction(id: number) {
+  await requireAuth();
+  await deleteService(id);
+  revalidatePath("/admin/services");
+}
+
+export async function createSocialAction(formData: FormData) {
+  await requireAuth();
+  await createSocial({
+    img: asString(formData.get("img")),
+    link: asString(formData.get("link")) || null,
+  });
+  revalidatePath("/admin/social");
+}
+
+export async function updateSocialAction(id: number, formData: FormData) {
+  await requireAuth();
+  await updateSocial(id, {
+    img: asString(formData.get("img")),
+    link: asString(formData.get("link")) || null,
+  });
+  revalidatePath("/admin/social");
+}
+
+export async function deleteSocialAction(id: number) {
+  await requireAuth();
+  await deleteSocial(id);
+  revalidatePath("/admin/social");
+}
+
+export async function createCoverImageAction(formData: FormData) {
+  await requireAuth();
+  const label = asString(formData.get("label"));
+  const file = formData.get("file");
+
+  if (!label) {
+    redirect("/admin/assets?cover_error=nolabel");
+  }
+
+  if (!(file instanceof File) || file.size === 0) {
+    redirect("/admin/assets?cover_error=nofile");
+  }
+
+  if (file.size > MAX_COVER_SIZE) {
+    redirect("/admin/assets?cover_error=toobig");
+  }
+
+  const allowedTypes = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/svg+xml"];
+  if (!allowedTypes.includes(file.type)) {
+    redirect("/admin/assets?cover_error=badtype");
+  }
+
+  const ext = (() => {
+    const t = file.type;
+    if (t === "image/png") return "png";
+    if (t === "image/jpeg" || t === "image/jpg") return "jpg";
+    if (t === "image/webp") return "webp";
+    if (t === "image/svg+xml") return "svg";
+    return "bin";
+  })();
+
+  const baseSlug = slugify(label) || "cover";
+  const filename = `${baseSlug}-${Date.now().toString(36)}.${ext}`;
+  const buffer = Buffer.from(await file.arrayBuffer());
+
+  await mkdir(COVERS_UPLOAD_DIR, { recursive: true });
+  await writeFile(join(COVERS_UPLOAD_DIR, filename), buffer);
+
+  await createCover({
+    label,
+    path: `/uploads/covers/${filename}`,
+  });
+
+  redirect("/admin/assets?cover_success=1");
+}
+
+export async function deleteCoverImageAction(id: number) {
+  await requireAuth();
+  await deleteCover(id);
+  revalidatePath("/admin/assets");
+}
+
+export async function syncTechIconsAction() {
+  await requireAuth();
+  const result = await syncTechIconsFromDisk();
+  revalidatePath("/admin/assets");
+  redirect(
+    `/admin/assets?sync_icons=${result.added}&sync_icons_skipped=${result.skipped}`
+  );
+}
+
+export async function syncCoverImagesAction() {
+  await requireAuth();
+  const result = await syncCoversFromDisk();
+  revalidatePath("/admin/assets");
+  redirect(
+    `/admin/assets?sync_covers=${result.added}&sync_covers_skipped=${result.skipped}`
+  );
+}
+
+export async function updateProfileAction(formData: FormData) {
+  await requireAuth();
+  await updateProfile({
+    name: asString(formData.get("name")) || "Anonymous",
+    role: asString(formData.get("role")) || "",
+    location: asString(formData.get("location")) || "",
+    avatar: asString(formData.get("avatar")) || null,
+    bio1: asString(formData.get("bio1")) || null,
+    bio2: asString(formData.get("bio2")) || null,
+  });
+  redirect("/admin/profile?success=1");
+}
+
+export async function uploadAvatarAction(formData: FormData) {
+  await requireAuth();
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    redirect("/admin/profile?avatar_error=nofile");
+  }
+
+  if (file.size > MAX_AVATAR_SIZE) {
+    redirect("/admin/profile?avatar_error=toobig");
+  }
+
+  const allowed = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
+  if (!allowed.includes(file.type)) {
+    redirect("/admin/profile?avatar_error=badtype");
+  }
+
+  const ext = (() => {
+    const t = file.type;
+    if (t === "image/png") return "png";
+    if (t === "image/webp") return "webp";
+    return "jpg";
+  })();
+
+  const baseSlug = "avatar";
+  const filename = `${baseSlug}-${Date.now().toString(36)}.${ext}`;
+  const buffer = Buffer.from(await file.arrayBuffer());
+
+  // Delete previous avatar file (best-effort) before writing new one
+  try {
+    const { getProfile, updateProfile } = await import("@/lib/data");
+    const current = await getProfile();
+    if (current.avatar) {
+      const uploadDir = resolve(process.cwd(), "public", "uploads", "avatars");
+      const fileAbs = resolve(
+        process.cwd(),
+        "public",
+        current.avatar.replace(/^\//, "")
+      );
+      if (fileAbs.startsWith(uploadDir)) {
+        try {
+          await unlink(fileAbs);
+        } catch {
+          /* missing */
+        }
+      }
+    }
+    await mkdir(AVATARS_UPLOAD_DIR, { recursive: true });
+    await writeFile(join(AVATARS_UPLOAD_DIR, filename), buffer);
+    await updateProfile({
+      ...current,
+      avatar: `/uploads/avatars/${filename}`,
+    });
+  } catch (err) {
+    console.error("[uploadAvatarAction]", err);
+    redirect("/admin/profile?avatar_error=db");
+  }
+
+  revalidatePath("/admin/profile");
+  revalidatePath("/info");
+  redirect("/admin/profile?avatar_success=1");
 }

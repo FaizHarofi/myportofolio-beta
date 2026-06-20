@@ -1,3 +1,4 @@
+import "dotenv/config";
 import mysql from "mysql2/promise";
 
 declare global {
@@ -7,11 +8,32 @@ declare global {
   var __mysqlInitPromise: Promise<mysql.Pool> | undefined;
 }
 
-const DB_HOST = process.env.DB_HOST || "localhost";
-const DB_PORT = Number(process.env.DB_PORT || 3306);
-const DB_USER = process.env.DB_USER || "root";
-const DB_PASSWORD = process.env.DB_PASSWORD || "";
-const DB_NAME = process.env.DB_NAME || "portofoliobeta";
+function requireEnv(name: string): string {
+  if (!(name in process.env)) {
+    throw new Error(
+      `[portofolio-beta] Missing required env var: ${name}. ` +
+        `Add it to your .env file (e.g. ${name}=).`
+    );
+  }
+  return process.env[name] as string;
+}
+
+function requireEnvNumber(name: string): number {
+  const raw = requireEnv(name);
+  const num = Number(raw);
+  if (!Number.isFinite(num)) {
+    throw new Error(
+      `[portofolio-beta] Env var ${name} must be a number, got: ${raw}`
+    );
+  }
+  return num;
+}
+
+const DB_HOST = requireEnv("DB_HOST");
+const DB_PORT = requireEnvNumber("DB_PORT");
+const DB_USER = requireEnv("DB_USER");
+const DB_PASSWORD = requireEnv("DB_PASSWORD");
+const DB_NAME = requireEnv("DB_NAME");
 
 let pool: mysql.Pool | null = global.__mysqlPool ?? null;
 let initPromise: Promise<mysql.Pool> | null = global.__mysqlInitPromise ?? null;
@@ -66,12 +88,35 @@ async function initSchema(conn: mysql.Connection) {
   `);
 
   await conn.query(`
-    CREATE TABLE IF NOT EXISTS testimonials (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      quote TEXT,
-      name VARCHAR(255),
-      title VARCHAR(255),
+    CREATE TABLE IF NOT EXISTS work_experience (
+      title VARCHAR(255) NOT NULL,
+      description TEXT,
+      class_name VARCHAR(255),
+      thumbnail VARCHAR(255),
       position INT NOT NULL DEFAULT 0
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await conn.query(`
+    CREATE TABLE IF NOT EXISTS services (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      icon VARCHAR(64) NOT NULL,
+      title VARCHAR(128) NOT NULL,
+      description TEXT,
+      tone VARCHAR(32) NOT NULL DEFAULT 'violet',
+      position INT NOT NULL DEFAULT 0
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await conn.query(`
+    CREATE TABLE IF NOT EXISTS profile (
+      id INT PRIMARY KEY DEFAULT 1,
+      name VARCHAR(128) NOT NULL DEFAULT 'Zra Vanilla',
+      role VARCHAR(255) NOT NULL DEFAULT 'Graphic Designer & Web Developer',
+      location VARCHAR(255) NOT NULL DEFAULT 'Pekanbaru, Riau, Indonesia',
+      avatar VARCHAR(500),
+      bio1 TEXT,
+      bio2 TEXT
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 
@@ -100,6 +145,7 @@ async function initSchema(conn: mysql.Connection) {
     CREATE TABLE IF NOT EXISTS social_media (
       id INT AUTO_INCREMENT PRIMARY KEY,
       img VARCHAR(255),
+      link VARCHAR(500),
       position INT NOT NULL DEFAULT 0
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
@@ -109,6 +155,37 @@ async function initSchema(conn: mysql.Connection) {
       id INT AUTO_INCREMENT PRIMARY KEY,
       label VARCHAR(255) NOT NULL,
       path VARCHAR(255) NOT NULL,
+      position INT NOT NULL DEFAULT 0,
+      UNIQUE KEY uk_tech_path (path)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await conn.query(`
+    CREATE TABLE IF NOT EXISTS covers (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      label VARCHAR(255) NOT NULL,
+      path VARCHAR(255) NOT NULL,
+      position INT NOT NULL DEFAULT 0,
+      UNIQUE KEY uk_covers_path (path)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await conn.query(`
+    CREATE TABLE IF NOT EXISTS skills (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      group_name VARCHAR(64) NOT NULL,
+      label VARCHAR(128) NOT NULL,
+      position INT NOT NULL DEFAULT 0
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await conn.query(`
+    CREATE TABLE IF NOT EXISTS educations (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      school VARCHAR(255) NOT NULL,
+      period VARCHAR(64) NOT NULL,
+      level VARCHAR(128) NOT NULL,
+      description TEXT,
       position INT NOT NULL DEFAULT 0
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
@@ -128,10 +205,10 @@ async function seedProjectsIfEmpty(conn: mysql.Connection) {
   if (r.affectedRows === 0) return;
 
   const seedNav = [
-    ["About", "#about"],
-    ["Projects", "#projects"],
-    ["Testimonials", "#testimonials"],
-    ["Contact", "#contact"],
+    ["About", "/#about"],
+    ["Projects", "/#projects"],
+    ["Testimonials", "/#testimonials"],
+    ["Contact", "/#contact"],
   ];
   for (let i = 0; i < seedNav.length; i++) {
     await conn.query(
@@ -346,11 +423,15 @@ async function seedProjectsIfEmpty(conn: mysql.Connection) {
     );
   }
 
-  const seedSocial = ["/git.svg", "/twit.svg", "/link.svg"];
+  const seedSocial = [
+    { img: "/git.svg", link: "https://github.com" },
+    { img: "/twit.svg", link: "https://twitter.com" },
+    { img: "/link.svg", link: "https://linkedin.com" },
+  ];
   for (let i = 0; i < seedSocial.length; i++) {
     await conn.query(
-      "INSERT INTO social_media (img, position) VALUES (?, ?)",
-      [seedSocial[i], i]
+      "INSERT INTO social_media (img, link, position) VALUES (?, ?, ?)",
+      [seedSocial[i].img, seedSocial[i].link, i]
     );
   }
 }
@@ -388,28 +469,188 @@ async function seedTechIconsIfEmpty(conn: mysql.Connection) {
   }
 }
 
-// Migration: add the 3 extra icons to existing DBs (idempotent)
-async function ensureExtraTechIcons(conn: mysql.Connection) {
-  const extra = [
-    { label: "CSS3", path: "/css-3.svg" },
-    { label: "HTML5", path: "/html.svg" },
-    { label: "JavaScript", path: "/js.svg" },
+// One-time migration: normalize nav anchor links to be absolute (/#anchor).
+// Existing rows may have "#about" which becomes "info#about" when clicked from /info.
+// Idempotent: after run, links start with "/#" so WHERE clause doesn't match them.
+async function fixNavAnchorLinks(conn: mysql.Connection) {
+  const [r] = (await conn.query(
+    "INSERT IGNORE INTO _meta (`key`, value) VALUES ('nav_anchors_absolute_v1', '1')"
+  )) as any;
+  if (r.affectedRows === 0) return;
+
+  await conn.query(
+    `UPDATE nav_items
+     SET link = CONCAT('/', link)
+     WHERE link LIKE '#%'`
+  );
+  console.log("[migrate] nav_items: normalized anchor links to /#anchor");
+}
+
+// One-time migration: rename `assets` table to `covers` and drop `kind` column.
+// Idempotent: gated by _meta flag. If assets table doesn't exist (fresh install),
+// this is a no-op.
+async function migrateAssetsToCovers(conn: mysql.Connection) {
+  const [r] = (await conn.query(
+    "INSERT IGNORE INTO _meta (`key`, value) VALUES ('migrated_assets_to_covers_v1', '1')"
+  )) as any;
+  if (r.affectedRows === 0) return;
+
+  const [tables] = (await conn.query(
+    `SELECT TABLE_NAME FROM information_schema.TABLES
+     WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'assets'`,
+    [DB_NAME]
+  )) as any;
+
+  if (tables.length === 0) return;
+
+  try {
+    await conn.query(`
+      INSERT INTO covers (id, label, path, position)
+      SELECT id, label, path, position FROM assets WHERE kind = 'cover'
+      ON DUPLICATE KEY UPDATE label = VALUES(label), path = VALUES(path), position = VALUES(position)
+    `);
+    await conn.query("DROP TABLE IF EXISTS assets");
+    console.log("[migrate] assets → covers: copied cover rows, dropped assets");
+  } catch (err) {
+    console.error("[migrate] assets → covers FAILED:", err);
+  }
+}
+
+async function seedSkillsIfEmpty(conn: mysql.Connection) {
+  const [r] = (await conn.query(
+    "INSERT IGNORE INTO _meta (`key`, value) VALUES ('seeded_skills', '1')"
+  )) as any;
+  if (r.affectedRows === 0) return;
+
+  const [rows] = (await conn.query(
+    "SELECT COUNT(*) as c FROM skills"
+  )) as any;
+  if (rows[0].c > 0) return;
+
+  const seedSkills = [
+    { group_name: "Design", label: "Photoshop" },
+    { group_name: "Design", label: "Alight Motion" },
+    { group_name: "Design", label: "Canva" },
+    { group_name: "Web", label: "HTML" },
+    { group_name: "Web", label: "CSS" },
+    { group_name: "Web", label: "JavaScript" },
   ];
-  for (let i = 0; i < extra.length; i++) {
-    const { label, path } = extra[i];
-    const [existing] = (await conn.query(
-      "SELECT id FROM tech_icons WHERE label = ? OR path = ? LIMIT 1",
-      [label, path]
-    )) as any;
-    if (existing.length > 0) {
-      console.log(`[migrate] tech_icons: ${label} already exists, skipping`);
-      continue;
-    }
+  for (let i = 0; i < seedSkills.length; i++) {
     await conn.query(
-      "INSERT INTO tech_icons (label, path, position) VALUES (?, ?, ?)",
-      [label, path, 9 + i]
+      "INSERT INTO skills (group_name, label, position) VALUES (?, ?, ?)",
+      [seedSkills[i].group_name, seedSkills[i].label, i]
     );
-    console.log(`[migrate] tech_icons: inserted ${label} (${path})`);
+  }
+}
+
+// One-time migration: add UNIQUE constraint on `path` columns of tech_icons
+// and covers. Idempotent: gated by _meta. Skips if duplicate data already
+// exists (logs error, doesn't fail the whole migration).
+async function addAssetUniqueConstraints(conn: mysql.Connection) {
+  const [r] = (await conn.query(
+    "INSERT IGNORE INTO _meta (`key`, value) VALUES ('asset_unique_constraints_v1', '1')"
+  )) as any;
+  if (r.affectedRows === 0) return;
+
+  for (const { table, keyName, label } of [
+    { table: "tech_icons", keyName: "uk_tech_path", label: "tech_icons.path" },
+    { table: "covers", keyName: "uk_covers_path", label: "covers.path" },
+  ]) {
+    try {
+      const [exists] = (await conn.query(
+        `SELECT 1 FROM information_schema.STATISTICS
+         WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND COLUMN_NAME = 'path' AND NON_UNIQUE = 0`,
+        [DB_NAME, table]
+      )) as any;
+      if (exists.length === 0) {
+        await conn.query(
+          `ALTER TABLE \`${table}\` ADD UNIQUE KEY \`${keyName}\` (path)`
+        );
+        console.log(`[migrate] ${label}: added UNIQUE constraint`);
+      }
+    } catch (err: any) {
+      console.warn(
+        `[migrate] ${label}: could not add UNIQUE — likely duplicate data exists (${err?.code || err?.message})`
+      );
+    }
+  }
+}
+
+// One-time seed for services table. Idempotent via _meta flag.
+async function seedServicesIfEmpty(conn: mysql.Connection) {
+  const [r] = (await conn.query(
+    "INSERT IGNORE INTO _meta (`key`, value) VALUES ('seeded_services', '1')"
+  )) as any;
+  if (r.affectedRows === 0) return;
+
+  const [rows] = (await conn.query(
+    "SELECT COUNT(*) as c FROM services"
+  )) as any;
+  if (rows[0].c > 0) return;
+
+  const seedServices = [
+    { icon: "Palette", title: "Brand & Identity", tone: "fuchsia",
+      description: "Logos, brand guidelines, and visual systems that make your business instantly recognizable." },
+    { icon: "Code2", title: "Web Development", tone: "violet",
+      description: "Modern, fast, and responsive websites built with the latest technologies and best practices." },
+    { icon: "Layout", title: "UI / UX Design", tone: "indigo",
+      description: "User-centered interfaces that look beautiful and feel intuitive across every screen size." },
+    { icon: "Smartphone", title: "Social Media", tone: "sky",
+      description: "Eye-catching content that grows your audience and keeps them engaged on every platform." },
+    { icon: "Film", title: "Motion & Video", tone: "emerald",
+      description: "Animations and short-form video edits that bring your brand to life and stop the scroll." },
+    { icon: "Printer", title: "Print Design", tone: "amber",
+      description: "Tangible materials that leave a lasting impression long after the screen is closed." },
+  ];
+  for (let i = 0; i < seedServices.length; i++) {
+    const s = seedServices[i];
+    await conn.query(
+      "INSERT INTO services (icon, title, description, tone, position) VALUES (?, ?, ?, ?, ?)",
+      [s.icon, s.title, s.description, s.tone, i]
+    );
+  }
+}
+
+async function seedEducationsIfEmpty(conn: mysql.Connection) {
+  const [r] = (await conn.query(
+    "INSERT IGNORE INTO _meta (`key`, value) VALUES ('seeded_educations', '1')"
+  )) as any;
+  if (r.affectedRows === 0) return;
+
+  const [rows] = (await conn.query(
+    "SELECT COUNT(*) as c FROM educations"
+  )) as any;
+  if (rows[0].c > 0) return;
+
+  const seedEducations = [
+    {
+      school: "SD IT Imam Asy syafi'i 2, Pekanbaru",
+      period: "2015 - 2021",
+      level: "Sekolah Dasar (SD)",
+      description:
+        "Completed primary education with a focus on foundational subjects and extracurricular activities.",
+    },
+    {
+      school: "SMP IT Imam An-Nawawi, Pekanbaru",
+      period: "2021 - 2024",
+      level: "Sekolah Menengah Pertama (SMP)",
+      description:
+        "Completed junior high school education with a focus on academic excellence and leadership development.",
+    },
+    {
+      school: "SMKN 2 Pekanbaru",
+      period: "2024 - Present",
+      level: "Sekolah Menengah Kejuruan (SMK)",
+      description:
+        "Currently pursuing a diploma in Information Technology with a focus on web development and digital design.",
+    },
+  ];
+  for (let i = 0; i < seedEducations.length; i++) {
+    const e = seedEducations[i];
+    await conn.query(
+      "INSERT INTO educations (school, period, level, description, position) VALUES (?, ?, ?, ?, ?)",
+      [e.school, e.period, e.level, e.description, i]
+    );
   }
 }
 
@@ -446,14 +687,17 @@ export async function getDb(): Promise<mysql.Pool> {
 
   const p = await initPromise;
 
-  // Always ensure schema is up-to-date (idempotent CREATE IF NOT EXISTS).
-  // This way, new tables added between server restarts are created on first request.
   const conn = await p.getConnection();
   try {
     await initSchema(conn);
+    await migrateAssetsToCovers(conn);
+    await addAssetUniqueConstraints(conn);
     await seedProjectsIfEmpty(conn);
     await seedTechIconsIfEmpty(conn);
-    await ensureExtraTechIcons(conn);
+    await seedSkillsIfEmpty(conn);
+    await seedEducationsIfEmpty(conn);
+    await seedServicesIfEmpty(conn);
+    await fixNavAnchorLinks(conn);
   } finally {
     conn.release();
   }

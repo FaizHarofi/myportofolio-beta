@@ -1,6 +1,115 @@
 import mysql from "mysql2/promise";
+import { readdir, unlink } from "fs/promises";
+import { join, resolve } from "path";
 import { getDb } from "./db";
 import { revalidatePath } from "next/cache";
+
+const ICONS_UPLOAD_DIR = resolve(
+  process.cwd(),
+  "public",
+  "uploads",
+  "tech",
+  "icon"
+);
+const COVERS_UPLOAD_DIR = resolve(
+  process.cwd(),
+  "public",
+  "uploads",
+  "covers"
+);
+
+function humanizeFilename(filename: string): string {
+  const base = filename.replace(/\.[^.]+$/, "");
+  // Strip random upload suffix: -{5-12 alphanumeric chars} at end
+  // e.g. "myicon-abc123xyz" -> "myicon"
+  const cleaned = base.replace(/[-_][a-z0-9]{5,12}$/i, "");
+  const final = cleaned || base;
+  return final
+    .replace(/[-_]+/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+    .trim()
+    .slice(0, 64);
+}
+
+export async function syncTechIconsFromDisk(): Promise<{
+  added: number;
+  skipped: number;
+}> {
+  const db = await getDb();
+  await ensureTechIconsTable(db);
+
+  let files: string[] = [];
+  try {
+    const entries = await readdir(ICONS_UPLOAD_DIR);
+    files = entries.filter((f) => f.toLowerCase().endsWith(".svg"));
+  } catch {
+    return { added: 0, skipped: 0 };
+  }
+
+  const [existing] = (await db.query(
+    "SELECT path FROM tech_icons"
+  )) as any;
+  const known = new Set(existing.map((r: any) => r.path));
+
+  let added = 0;
+  for (const file of files) {
+    const path = `/uploads/tech/icon/${file}`;
+    if (known.has(path)) continue;
+
+    const label = humanizeFilename(file);
+    const [posRow] = (await db.query(
+      "SELECT COALESCE(MAX(position), -1) + 1 AS p FROM tech_icons"
+    )) as any;
+    const [result] = (await db.query(
+      "INSERT IGNORE INTO tech_icons (label, path, position) VALUES (?, ?, ?)",
+      [label, path, posRow[0].p]
+    )) as any;
+    if ((result?.affectedRows ?? 0) > 0) added++;
+  }
+
+  return { added, skipped: files.length - added };
+}
+
+export async function syncCoversFromDisk(): Promise<{
+  added: number;
+  skipped: number;
+}> {
+  const db = await getDb();
+  await ensureCoversTable(db);
+
+  let files: string[] = [];
+  try {
+    const entries = await readdir(COVERS_UPLOAD_DIR);
+    files = entries.filter((f) =>
+    /\.(png|jpe?g|webp|svg)$/i.test(f)
+    );
+  } catch {
+    return { added: 0, skipped: 0 };
+  }
+
+  const [existing] = (await db.query(
+    "SELECT path FROM covers"
+  )) as any;
+  const known = new Set(existing.map((r: any) => r.path));
+
+  let added = 0;
+  for (const file of files) {
+    const path = `/uploads/covers/${file}`;
+    if (known.has(path)) continue;
+
+    const label = humanizeFilename(file);
+    const [posRow] = (await db.query(
+      "SELECT COALESCE(MAX(position), -1) + 1 AS p FROM covers"
+    )) as any;
+    const [result] = (await db.query(
+      "INSERT IGNORE INTO covers (label, path, position) VALUES (?, ?, ?)",
+      [label, path, posRow[0].p]
+    )) as any;
+    if ((result?.affectedRows ?? 0) > 0) added++;
+  }
+
+  return { added, skipped: files.length - added };
+}
 
 export type TechIcon = {
   id: number;
@@ -72,14 +181,109 @@ export async function createTechIcon(input: { label: string; path: string }) {
     "INSERT INTO tech_icons (label, path, position) VALUES (?, ?, ?)",
     [input.label, input.path, position]
   );
-  revalidatePath("/admin/icons");
+  revalidatePath("/admin/assets");
   revalidatePath("/admin/projects");
+  revalidatePath("/info");
 }
 
 export async function deleteTechIcon(id: number) {
   const db = await getDb();
   await ensureTechIconsTable(db);
+
+  const [rows] = (await db.query(
+    "SELECT path FROM tech_icons WHERE id = ?",
+    [id]
+  )) as any;
+  const row = rows[0];
+  if (row?.path) {
+    const uploadDir = resolve(process.cwd(), "public", "uploads", "tech", "icon");
+    const fileAbs = resolve(process.cwd(), "public", row.path.replace(/^\//, ""));
+    if (fileAbs.startsWith(uploadDir)) {
+      try {
+        await unlink(fileAbs);
+      } catch {
+        /* file may already be missing — ignore */
+      }
+    }
+  }
+
   await db.query("DELETE FROM tech_icons WHERE id = ?", [id]);
-  revalidatePath("/admin/icons");
+  revalidatePath("/admin/assets");
+  revalidatePath("/admin/projects");
+  revalidatePath("/info");
+}
+
+export type Cover = {
+  id: number;
+  label: string;
+  path: string;
+  position: number;
+};
+
+async function ensureCoversTable(db: mysql.Pool) {
+  try {
+    await db.query("SELECT 1 FROM covers LIMIT 1");
+  } catch (err: any) {
+    if (err?.errno === 1146 || err?.code === "ER_NO_SUCH_TABLE") {
+      await db.query(`
+        CREATE TABLE covers (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          label VARCHAR(255) NOT NULL,
+          path VARCHAR(255) NOT NULL,
+          position INT NOT NULL DEFAULT 0
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+      `);
+    } else {
+      throw err;
+    }
+  }
+}
+
+export async function getCovers(): Promise<Cover[]> {
+  const db = await getDb();
+  await ensureCoversTable(db);
+  const [rows] = (await db.query(
+    "SELECT * FROM covers ORDER BY position ASC, id ASC"
+  )) as any;
+  return rows;
+}
+
+export async function createCover(input: { label: string; path: string }) {
+  const db = await getDb();
+  await ensureCoversTable(db);
+  const [r] = (await db.query(
+    "SELECT COALESCE(MAX(position), -1) + 1 AS p FROM covers"
+  )) as any;
+  const position = r[0].p;
+  await db.query(
+    "INSERT INTO covers (label, path, position) VALUES (?, ?, ?)",
+    [input.label, input.path, position]
+  );
+  revalidatePath("/admin/assets");
+  revalidatePath("/admin/projects");
+}
+
+export async function deleteCover(id: number) {
+  const db = await getDb();
+
+  const [rows] = (await db.query(
+    "SELECT path FROM covers WHERE id = ?",
+    [id]
+  )) as any;
+  const row = rows[0];
+  if (row?.path) {
+    const uploadDir = resolve(process.cwd(), "public", "uploads", "covers");
+    const fileAbs = resolve(process.cwd(), "public", row.path.replace(/^\//, ""));
+    if (fileAbs.startsWith(uploadDir)) {
+      try {
+        await unlink(fileAbs);
+      } catch {
+        /* file may already be missing — ignore */
+      }
+    }
+  }
+
+  await db.query("DELETE FROM covers WHERE id = ?", [id]);
+  revalidatePath("/admin/assets");
   revalidatePath("/admin/projects");
 }

@@ -1,22 +1,27 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import { Pencil } from "lucide-react";
 import { EditModal } from "./EditModal";
 import { DeleteButton, EntityForm, type Field } from "./EntityForm";
 
 export function EditableItem({
   title,
   subtitle,
+  meta,
+  thumbnail,
   fields,
   defaults,
   updateAction,
   deleteAction,
-  modalSize = "full",
+  modalSize = "lg",
   columns = 1,
   children,
 }: {
   title: string;
   subtitle?: string;
+  meta?: ReactNode;
+  thumbnail?: ReactNode;
   fields: Field[];
   defaults: Record<string, string>;
   updateAction: (formData: FormData) => Promise<void>;
@@ -31,20 +36,28 @@ export function EditableItem({
   if (hidden) return null;
 
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4 flex items-start gap-4">
-      <div className="min-w-0 flex-1">
-        <h3 className="text-white font-medium truncate">{title}</h3>
-        {subtitle && (
-          <p className="text-xs text-slate-500 truncate">{subtitle}</p>
-        )}
+    <div className="group relative flex items-stretch gap-3 sm:gap-4 rounded-2xl border border-white/10 bg-slate-900/40 backdrop-blur-xl p-3 sm:p-4 hover:border-white/10 hover:bg-slate-900/60 transition-all">
+      {thumbnail ? (
+        <div className="shrink-0 self-stretch">{thumbnail}</div>
+      ) : null}
+
+      <div className="min-w-0 flex-1 flex flex-col justify-center">
+        <h3 className="text-sm sm:text-base font-semibold text-white truncate">
+          {title}
+        </h3>
+        {subtitle ? (
+          <p className="mt-0.5 text-xs text-slate-400 truncate">{subtitle}</p>
+        ) : null}
+        {meta ? <div className="mt-1.5">{meta}</div> : null}
       </div>
 
-      <div className="flex gap-2 shrink-0">
+      <div className="flex items-center gap-2 shrink-0">
         <button
           type="button"
           onClick={() => setEditOpen(true)}
-          className="rounded-md border border-sky-500/40 text-sky-300 hover:bg-sky-500/10 px-3 py-1 text-xs font-medium transition"
+          className="inline-flex items-center justify-center gap-1.5 h-9 px-3 rounded-lg text-xs font-medium bg-slate-950/10 text-slate-200 border border-white/10 hover:bg-violet-500/15 hover:text-violet-200 hover:border-violet-400/40 transition active:scale-[0.98]"
         >
+          <Pencil size={13} />
           Edit
         </button>
         <DeleteButton
@@ -66,7 +79,7 @@ export function EditableItem({
           defaults={defaults}
           action={updateAction}
           onAfterSubmit={() => setEditOpen(false)}
-          submitLabel="Save"
+          submitLabel="Save changes"
           columns={columns}
         >
           {children}
