@@ -49,6 +49,7 @@ async function ensureDatabase() {
     port: DB_PORT,
     user: DB_USER,
     password: DB_PASSWORD,
+    ssl: { rejectUnauthorized: false },
   });
   await root.query(
     `CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`
@@ -178,6 +179,16 @@ async function initSchema(conn: mysql.Connection) {
       path VARCHAR(255) NOT NULL,
       position INT NOT NULL DEFAULT 0,
       UNIQUE KEY uk_covers_path (path)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await conn.query(`
+    CREATE TABLE IF NOT EXISTS testimonials (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      quote TEXT NOT NULL,
+      name VARCHAR(255) NOT NULL,
+      title VARCHAR(255) NOT NULL,
+      position INT NOT NULL DEFAULT 0
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 
@@ -673,6 +684,7 @@ export async function getDb(): Promise<mysql.Pool> {
         connectionLimit: 10,
         queueLimit: 0,
         debug: DEBUG_MODE,
+        ssl: { rejectUnauthorized: false },
       });
 
       const conn = await newPool.getConnection();

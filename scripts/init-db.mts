@@ -35,6 +35,7 @@ async function main() {
     user,
     password,
     multipleStatements: false,
+    ssl: { rejectUnauthorized: false },
   });
   await root.query(
     `CREATE DATABASE IF NOT EXISTS \`${database}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`
@@ -42,7 +43,7 @@ async function main() {
   await root.end();
   console.log(`[init-db] Database \`${database}\` ready.`);
 
-  const { getDb } = await import("../lib/db");
+  const { getDb } = await import("../lib/db.ts");
   const db = await getDb();
 
   const conn = await db.getConnection();
