@@ -6,18 +6,25 @@ import { FolderKanban, Rocket, Sparkles } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import type { Project } from "@/lib/data";
-import { PinContainer } from "./ui/Pin";
+import { ClippedCircle } from "@/components/unlumen-ui/clipped-circle";
 
 const RecentProjects = ({ projects }: { projects: Project[] }) => {
+  const visibleProjects = projects.filter((p) => Boolean(p.enabled));
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const [start, setStart] = useState(false);
 
+  const enableMarquee = visibleProjects.length >= 2;
+
   useEffect(() => {
-    addAnimation();
+    if (enableMarquee) {
+      addAnimation();
+    } else {
+      setStart(true);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [enableMarquee]);
 
   function addAnimation() {
     if (containerRef.current && scrollerRef.current) {
@@ -51,101 +58,141 @@ const RecentProjects = ({ projects }: { projects: Project[] }) => {
         <span className="text-purple">recent projects</span>
       </h1>
 
-      {projects.length === 0 ? (
+      {visibleProjects.length === 0 ? (
         <ProjectsEmpty />
-      ) : (
+      ) : enableMarquee ? (
         <div
           ref={containerRef}
           className="scroller relative overflow-hidden [mask-image:linear-gradient(to_right,transparent,white_20%,white_80%,transparent)]"
         >
-        <div
-          ref={scrollerRef}
-          className={cn(
-            "flex gap-12 py-6 w-max flex-nowrap",
-            start && "animate-scroll",
-            "hover:[animation-play-state:paused]"
-          )}
-        >
-          {projects.map((item, idx) => {
-            const isHovered = hoveredIdx === idx;
-            return (
-              <div
-                key={idx}
-                className={cn(
-                  "lg:min-h-[32.5rem] h-[25rem] flex items-center justify-center sm:w-96 w-[80vw] shrink-0 relative transition-shadow duration-500",
-                  isHovered &&
-                    "shadow-[0_25px_60px_-15px_rgba(56,189,248,0.5)]"
-                )}
-                onMouseEnter={() => setHoveredIdx(idx)}
-                onMouseLeave={() => setHoveredIdx(null)}
-              >
-                {isHovered && (
-                  <>
-                    <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-sky-400 to-transparent animate-scan-line pointer-events-none z-[70]" />
-                    <div className="absolute inset-y-0 left-0 w-[2px] bg-gradient-to-b from-transparent via-sky-400 to-transparent animate-scan-line-x pointer-events-none z-[70]" />
-                  </>
-                )}
-
-                <PinContainer title={item.link} href={item.link}>
-                  <div className="relative flex items-center justify-center sm:w-96 w-[80vw] overflow-hidden h-[20vh] lg:h-[30vh] mb-10">
-                    <div
-                      className="relative w-full h-full overflow-hidden lg:rounded-3xl"
-                      style={{ backgroundColor: "#13162D" }}
-                    >
-                      <img src="/bg.png" alt="bgimg" />
-                    </div>
-                    <img
-                      src={item.img}
-                      alt="cover"
-                      className="z-10 absolute bottom-0"
-                    />
-                  </div>
-
-                  <h1 className="font-bold lg:text-2xl md:text-xl text-base line-clamp-1">
-                    {item.title}
-                  </h1>
-
-                  <p
-                    className="lg:text-xl lg:font-normal font-light text-sm line-clamp-2"
-                    style={{
-                      color: "#BEC1DD",
-                      margin: "1vh 0",
-                    }}
-                  >
-                    {item.des}
-                  </p>
-
-                  <div className="flex items-center justify-between mt-7 mb-3">
-                    <div className="flex items-center">
-                      {item.iconLists.map((icon, index) => (
-                        <div
-                          key={index}
-                          className="border border-white/[.2] rounded-full bg-black lg:w-10 lg:h-10 w-8 h-8 flex justify-center items-center"
-                          style={{
-                            transform: `translateX(-${5 * index + 2}px)`,
-                          }}
-                        >
-                          <img src={icon} alt="icon5" className="p-2" />
-                        </div>
-                      ))}
-                    </div>
-                    <div className="flex justify-center items-center">
-                      <p className="flex lg:text-xl md:text-xs text-sm text-purple">
-                        Check Live Site
-                      </p>
-                      <FaLocationArrow className="ms-3" color="#38BDF8" />
-                    </div>
-                  </div>
-                </PinContainer>
-              </div>
-            );
-          })}
+          <div
+            ref={scrollerRef}
+            className={cn(
+              "flex gap-12 py-6 w-max flex-nowrap",
+              start && "animate-scroll",
+              "hover:[animation-play-state:paused]"
+            )}
+          >
+            {visibleProjects.map((item, idx) => (
+              <ProjectCard
+                key={`${item.id}-${idx}`}
+                item={item}
+                idx={idx}
+                hoveredIdx={hoveredIdx}
+                setHoveredIdx={setHoveredIdx}
+              />
+            ))}
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="mt-8 flex justify-center">
+          <ProjectCard
+            item={visibleProjects[0]}
+            idx={0}
+            hoveredIdx={hoveredIdx}
+            setHoveredIdx={setHoveredIdx}
+          />
+        </div>
       )}
     </div>
   );
 };
+
+function ProjectCard({
+  item,
+  idx,
+  hoveredIdx,
+  setHoveredIdx,
+}: {
+  item: Project;
+  idx: number;
+  hoveredIdx: number | null;
+  setHoveredIdx: (i: number | null) => void;
+}) {
+  const isHovered = hoveredIdx === idx;
+  return (
+    <div
+      className={cn(
+        "lg:min-h-[24rem] h-[20rem] flex items-center justify-center sm:w-72 w-[80vw] shrink-0 relative transition-shadow duration-500",
+        isHovered && "shadow-[0_25px_60px_-15px_rgba(56,189,248,0.5)]"
+      )}
+      onMouseEnter={() => setHoveredIdx(idx)}
+      onMouseLeave={() => setHoveredIdx(null)}
+    >
+      <div className="relative h-full w-full rounded-xl p-px transition-all duration-300 bg-gradient-to-br from-white/15 via-white/5 to-white/10 hover:from-white/30 hover:via-white/10 hover:to-white/20">
+        {item.link ? (
+          <a
+            href={item.link}
+            target="_blank"
+            rel="noreferrer"
+            className="relative block w-full h-full cursor-pointer overflow-hidden rounded-xl bg-slate-950/80 ring-1 ring-inset ring-white/10 transition-transform duration-300 hover:-translate-y-1"
+          >
+            <CardInner item={item} />
+            <ClippedCircle
+              circleSize={220}
+              circleClassName="bg-violet-500/30"
+            />
+          </a>
+        ) : (
+          <div className="relative block w-full h-full cursor-pointer overflow-hidden rounded-xl bg-slate-950/80 ring-1 ring-inset ring-white/10">
+            <CardInner item={item} />
+            <ClippedCircle
+              circleSize={220}
+              circleClassName="bg-violet-500/30"
+            />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CardInner({ item }: { item: Project }) {
+  return (
+    <div className="flex h-full flex-col p-4">
+      <div className="relative flex w-full items-center justify-center overflow-hidden h-[14vh] lg:h-[18vh] mb-6 rounded-xl bg-[#13162D]">
+        <img
+          src={item.img}
+          alt={item.title}
+          className="z-10 absolute bottom-0 max-h-full w-auto object-contain"
+        />
+      </div>
+
+      <h1 className="font-bold lg:text-lg md:text-base text-sm line-clamp-1 text-white">
+        {item.title}
+      </h1>
+
+      <p
+        className="lg:text-sm font-light text-xs line-clamp-2 text-white/75"
+        style={{ margin: "0.6vh 0" }}
+      >
+        {item.des}
+      </p>
+
+      <div className="flex items-center justify-between mt-auto pt-4">
+        <div className="flex items-center">
+          {item.iconLists.map((icon, index) => (
+            <div
+              key={index}
+              className="border border-white/[.2] rounded-full bg-black lg:w-8 lg:h-8 w-6 h-6 flex justify-center items-center"
+              style={{
+                transform: `translateX(-${4 * index + 2}px)`,
+              }}
+            >
+              <img src={icon} alt="icon5" className="p-1.5" />
+            </div>
+          ))}
+        </div>
+        <div className="flex justify-center items-center">
+          <p className="flex lg:text-sm text-xs text-purple">
+            Live Site
+          </p>
+          <FaLocationArrow className="ms-2" color="#38BDF8" size={12} />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function ProjectsEmpty() {
   return (

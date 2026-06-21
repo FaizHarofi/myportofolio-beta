@@ -1,16 +1,29 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { Save, Trash2, Loader2 } from "lucide-react";
+import { Save, Trash2, Loader2, Upload } from "lucide-react";
 import { Button } from "./Button";
+import { FileInput } from "./FileInput";
+import { SocialPicker, type SocialOption } from "./SocialPicker";
+import { CompanyPicker, type CompanyOption } from "./CompanyPicker";
+import { CoverPicker, type CoverOption } from "./CoverPicker";
 import { cn } from "@/lib/utils";
 
 export type Field = {
   name: string;
   label: string;
-  type?: "text" | "textarea" | "list";
+  type?:
+    | "text"
+    | "textarea"
+    | "list"
+    | "file"
+    | "social-picker"
+    | "company-picker"
+    | "cover-picker";
   placeholder?: string;
   hint?: string;
+  accept?: string;
+  options?: SocialOption[] | CompanyOption[] | CoverOption[];
 };
 
 const inputBase =
@@ -78,6 +91,31 @@ export function EntityForm({
             defaultValue={value}
             placeholder={f.placeholder ?? "/a.svg,/b.svg"}
             className={inputBase}
+          />
+        ) : f.type === "file" ? (
+          <FileInput
+            id={f.name}
+            name={f.name}
+            accept={f.accept ?? ".png,.jpg,.jpeg,.webp,.svg,image/png,image/jpeg,image/webp,image/svg+xml"}
+            variant="cover"
+          />
+        ) : f.type === "social-picker" ? (
+          <SocialPicker
+            name={f.name}
+            value={value}
+            options={(f.options ?? []) as SocialOption[]}
+          />
+        ) : f.type === "company-picker" ? (
+          <CompanyPicker
+            name={f.name}
+            value={value}
+            options={(f.options ?? []) as CompanyOption[]}
+          />
+        ) : f.type === "cover-picker" ? (
+          <CoverPicker
+            name={f.name}
+            value={value}
+            options={(f.options ?? []) as CoverOption[]}
           />
         ) : (
           <input

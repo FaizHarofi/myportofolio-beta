@@ -30,15 +30,6 @@ const ICON_OPTIONS = [
   "Wand",
 ];
 
-const TONE_OPTIONS = [
-  "violet",
-  "fuchsia",
-  "indigo",
-  "sky",
-  "emerald",
-  "amber",
-];
-
 const fields: Field[] = [
   {
     name: "title",
@@ -52,27 +43,12 @@ const fields: Field[] = [
     hint: `Pick from: ${ICON_OPTIONS.slice(0, 6).join(", ")}…`,
   },
   {
-    name: "tone",
-    label: "Color tone",
-    placeholder: "violet",
-    hint: `Pick from: ${TONE_OPTIONS.join(", ")}`,
-  },
-  {
     name: "description",
     label: "Description",
     type: "textarea",
     placeholder: "What this service includes.",
   },
 ];
-
-const toneStyles: Record<string, string> = {
-  violet: "bg-violet-500/10 text-violet-300 border-violet-500/20",
-  fuchsia: "bg-fuchsia-500/10 text-fuchsia-300 border-fuchsia-500/20",
-  indigo: "bg-indigo-500/10 text-indigo-300 border-indigo-500/20",
-  sky: "bg-sky-500/10 text-sky-300 border-sky-500/20",
-  emerald: "bg-emerald-500/10 text-emerald-300 border-emerald-500/20",
-  amber: "bg-amber-500/10 text-amber-300 border-amber-500/20",
-};
 
 export default async function AdminServices() {
   const items = await getServices();
@@ -81,13 +57,13 @@ export default async function AdminServices() {
     <div className="max-w-5xl">
       <PageHeader
         title="Services"
-        description="Services shown on the homepage. Each entry has title, icon, color tone, and description."
+        description="Services shown on the homepage. Each entry has title, icon, and description."
         icon={<Briefcase size={22} />}
         badge={`${items.length} total`}
         actions={
           <AddNewButton
             title="Add new service"
-            description="Pick an icon and color tone for visual consistency."
+            description="Pick an icon for visual consistency."
             fields={fields}
             action={createServiceAction}
             modalSize="md"
@@ -99,7 +75,7 @@ export default async function AdminServices() {
         <div className="p-5 sm:p-6">
           <SectionHeader
             title="All services"
-            description="Click edit to update title, icon, tone, or description."
+            description="Click edit to update title, icon, or description."
             count={items.length}
           />
           {items.length === 0 ? (
@@ -125,13 +101,6 @@ export default async function AdminServices() {
                   subtitle={s.description}
                   meta={
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span
-                        className={`inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded border ${
-                          toneStyles[s.tone] || toneStyles.violet
-                        }`}
-                      >
-                        {s.tone}
-                      </span>
                       <span className="inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded bg-slate-950/5 text-slate-300 border border-white/10 font-mono">
                         {s.icon}
                       </span>
@@ -144,7 +113,6 @@ export default async function AdminServices() {
                   defaults={{
                     title: s.title,
                     icon: s.icon,
-                    tone: s.tone,
                     description: s.description,
                   }}
                   updateAction={updateServiceAction.bind(null, s.id)}

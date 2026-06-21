@@ -16,6 +16,8 @@ const Grid = ({ items }: { items: GridItem[] }) => {
             imgClassName={item.imgClassName}
             titleClassName={item.titleClassName}
             spareImg={item.spareImg}
+            leftLists={item.leftLists}
+            rightLists={item.rightLists}
           />
         ))}
       </BentoGrid>

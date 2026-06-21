@@ -19,7 +19,7 @@ export function EditableItem({
   children,
 }: {
   title: string;
-  subtitle?: string;
+  subtitle?: ReactNode;
   meta?: ReactNode;
   thumbnail?: ReactNode;
   fields: Field[];
