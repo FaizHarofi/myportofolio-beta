@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { mkdir, unlink, writeFile } from "fs/promises";
 import { join, resolve } from "path";
+import { uploadBlob, deleteBlob } from "@/lib/blob";
 import {
   checkPassword,
   clearSessionCookie,
@@ -102,9 +103,10 @@ async function saveImageUpload(
   const baseSlug = slugify(label) || "asset";
   const filename = `${baseSlug}-${Date.now().toString(36)}.${ext}`;
   const buffer = Buffer.from(await file.arrayBuffer());
-  await mkdir(uploadDir, { recursive: true });
-  await writeFile(join(uploadDir, filename), buffer);
-  return `${urlPrefix}/${filename}`;
+  // urlPrefix is e.g. "uploads/covers" — strip leading slash so we always
+  // pass a clean relative path to Vercel Blob.
+  const blobPath = `${urlPrefix.replace(/^\//, "")}/${filename}`;
+  return await uploadBlob(blobPath, buffer, { contentType: file.type });
 }
 
 async function requireAuth() {
@@ -449,23 +451,22 @@ export async function createTechIconAction(formData: FormData) {
 
   const baseSlug = slugify(label);
   const filename = `${baseSlug}-${Date.now().toString(36)}.svg`;
-
-  await mkdir(ICONS_UPLOAD_DIR, { recursive: true });
-  await writeFile(join(ICONS_UPLOAD_DIR, filename), cleaned, "utf-8");
+  const blobPath = `uploads/tech/icon/${filename}`;
 
   try {
+    await uploadBlob(blobPath, cleaned, { contentType: "image/svg+xml" });
     await createTechIcon({
       label,
-      path: `/uploads/tech/icon/${filename}`,
+      path: `/${blobPath}`,
     });
     console.log(
-      `[createTechIconAction] inserted: label="${label}" path="/uploads/tech/icon/${filename}"`
+      `[createTechIconAction] inserted: label="${label}" path="/${blobPath}"`
     );
   } catch (err) {
     console.error("[createTechIconAction] DB insert FAILED:", err);
-    // Try to clean up the orphaned file so we don't leave a dangling asset
+    // Try to clean up the orphaned blob so we don't leave a dangling asset
     try {
-      await unlink(join(ICONS_UPLOAD_DIR, filename));
+      await deleteBlob(`/${blobPath}`);
     } catch {
       /* ignore */
     }
@@ -768,32 +769,19 @@ export async function uploadAvatarAction(formData: FormData) {
 
   const baseSlug = "avatar";
   const filename = `${baseSlug}-${Date.now().toString(36)}.${ext}`;
-  const buffer = Buffer.from(await file.arrayBuffer());
+  const blobPath = `uploads/avatars/${filename}`;
 
-  // Delete previous avatar file (best-effort) before writing new one
   try {
-    const { getProfile, updateProfile } = await import("@/lib/data");
+    const { getProfile } = await import("@/lib/data");
     const current = await getProfile();
     if (current.avatar) {
-      const uploadDir = resolve(process.cwd(), "public", "uploads", "avatars");
-      const fileAbs = resolve(
-        process.cwd(),
-        "public",
-        current.avatar.replace(/^\//, "")
-      );
-      if (fileAbs.startsWith(uploadDir)) {
-        try {
-          await unlink(fileAbs);
-        } catch {
-          /* missing */
-        }
-      }
+      await deleteBlob(current.avatar);
     }
-    await mkdir(AVATARS_UPLOAD_DIR, { recursive: true });
-    await writeFile(join(AVATARS_UPLOAD_DIR, filename), buffer);
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const url = await uploadBlob(blobPath, buffer, { contentType: file.type });
     await updateProfile({
       ...current,
-      avatar: `/uploads/avatars/${filename}`,
+      avatar: url,
     });
   } catch (err) {
     console.error("[uploadAvatarAction]", err);
