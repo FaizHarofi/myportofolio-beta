@@ -31,6 +31,9 @@ import {
   deleteSkill,
   deleteSocial,
   deleteTestimonial,
+  setCompanyEnabled,
+  setProjectEnabled,
+  setSocialEnabled,
   updateCompany,
   updateEducation,
   updateExperience,
@@ -43,14 +46,18 @@ import {
   updateTestimonial,
   updateProfile,
 } from "@/lib/data";
-import { createCover, createTechIcon, deleteCover, deleteTechIcon, syncCoversFromDisk, syncTechIconsFromDisk } from "@/lib/icons-data";
+import { createCover, createTechIcon, deleteCover, deleteTechIcon, syncCompaniesFromDisk, syncCoversFromDisk, syncProjectImagesFromDisk, syncSocialsFromDisk, syncTechIconsFromDisk } from "@/lib/icons-data";
 
 const ICONS_UPLOAD_DIR = join(process.cwd(), "public", "uploads", "tech", "icon");
 const COVERS_UPLOAD_DIR = join(process.cwd(), "public", "uploads", "covers");
+const SOCIAL_ASSETS_UPLOAD_DIR = join(process.cwd(), "public", "uploads", "social");
+const COMPANIES_UPLOAD_DIR = join(process.cwd(), "public", "uploads", "companies");
 const AVATARS_UPLOAD_DIR = join(process.cwd(), "public", "uploads", "avatars");
 const MAX_AVATAR_SIZE = 3 * 1024 * 1024;
 const MAX_ICON_SIZE = 100 * 1024;
 const MAX_COVER_SIZE = 2 * 1024 * 1024;
+const MAX_SOCIAL_ASSET_SIZE = 2 * 1024 * 1024;
+const MAX_COMPANY_ASSET_SIZE = 2 * 1024 * 1024;
 
 function slugify(text: string): string {
   return (
@@ -59,6 +66,45 @@ function slugify(text: string): string {
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "") || "icon"
   );
+}
+
+async function saveImageUpload(
+  file: FormDataEntryValue | null,
+  uploadDir: string,
+  urlPrefix: string,
+  maxSize: number,
+  label: string,
+  redirectPath: string,
+  errorKey: string,
+): Promise<string | null> {
+  if (!(file instanceof File) || file.size === 0) return null;
+  if (file.size > maxSize) {
+    redirect(`${redirectPath}?${errorKey}=toobig`);
+  }
+  const allowedTypes = [
+    "image/png",
+    "image/jpeg",
+    "image/jpg",
+    "image/webp",
+    "image/svg+xml",
+  ];
+  if (!allowedTypes.includes(file.type)) {
+    redirect(`${redirectPath}?${errorKey}=badtype`);
+  }
+  const ext = (() => {
+    const t = file.type;
+    if (t === "image/png") return "png";
+    if (t === "image/jpeg" || t === "image/jpg") return "jpg";
+    if (t === "image/webp") return "webp";
+    if (t === "image/svg+xml") return "svg";
+    return "bin";
+  })();
+  const baseSlug = slugify(label) || "asset";
+  const filename = `${baseSlug}-${Date.now().toString(36)}.${ext}`;
+  const buffer = Buffer.from(await file.arrayBuffer());
+  await mkdir(uploadDir, { recursive: true });
+  await writeFile(join(uploadDir, filename), buffer);
+  return `${urlPrefix}/${filename}`;
 }
 
 async function requireAuth() {
@@ -118,6 +164,7 @@ export async function createProjectAction(formData: FormData) {
     img: asString(formData.get("img")),
     iconLists: asStringArrayMulti(formData, "iconLists"),
     link: asString(formData.get("link")),
+    enabled: formData.get("enabled") !== "0",
   });
   revalidatePath("/admin/projects");
 }
@@ -130,7 +177,15 @@ export async function updateProjectAction(id: number, formData: FormData) {
     img: asString(formData.get("img")),
     iconLists: asStringArrayMulti(formData, "iconLists"),
     link: asString(formData.get("link")),
+    enabled: formData.get("enabled") !== "0",
   });
+  revalidatePath("/admin/projects");
+}
+
+export async function toggleProjectAction(id: number, formData: FormData) {
+  await requireAuth();
+  const enabled = asString(formData.get("enabled")) === "1";
+  await setProjectEnabled(id, enabled);
   revalidatePath("/admin/projects");
 }
 
@@ -138,6 +193,13 @@ export async function deleteProjectAction(id: number) {
   await requireAuth();
   await deleteProject(id);
   revalidatePath("/admin/projects");
+}
+
+function parseCommaList(v: string): string[] {
+  return v
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
 }
 
 export async function createGridItemAction(formData: FormData) {
@@ -150,6 +212,8 @@ export async function createGridItemAction(formData: FormData) {
     titleClassName: asString(formData.get("titleClassName")),
     img: asString(formData.get("img")),
     spareImg: asString(formData.get("spareImg")),
+    leftLists: parseCommaList(asString(formData.get("leftLists"))),
+    rightLists: parseCommaList(asString(formData.get("rightLists"))),
   });
   revalidatePath("/admin/grid-items");
 }
@@ -164,6 +228,8 @@ export async function updateGridItemAction(id: number, formData: FormData) {
     titleClassName: asString(formData.get("titleClassName")),
     img: asString(formData.get("img")),
     spareImg: asString(formData.get("spareImg")),
+    leftLists: parseCommaList(asString(formData.get("leftLists"))),
+    rightLists: parseCommaList(asString(formData.get("rightLists"))),
   });
   revalidatePath("/admin/grid-items");
 }
@@ -202,22 +268,85 @@ export async function deleteTestimonialAction(id: number) {
 
 export async function createCompanyAction(formData: FormData) {
   await requireAuth();
+  const name = asString(formData.get("name"));
+  const enabled = formData.get("enabled") !== "0";
+
+  if (!name) {
+    redirect("/admin/companies?error=noname");
+  }
+
+  const fileLogo = formData.get("file_logo");
+  const imgPath = asString(formData.get("img"));
+
+  const uploadedLogo = await saveImageUpload(
+    fileLogo,
+    COMPANIES_UPLOAD_DIR,
+    "/uploads/companies",
+    MAX_COMPANY_ASSET_SIZE,
+    name,
+    "/admin/companies",
+    "logo_error"
+  );
+
+  const finalLogo = imgPath || uploadedLogo || "";
+
+  if (!finalLogo) {
+    redirect("/admin/companies?error=nologo");
+  }
+
   await createCompany({
-    name: asString(formData.get("name")),
-    img: asString(formData.get("img")),
-    nameImg: asString(formData.get("nameImg")),
+    name,
+    img: finalLogo,
+    nameImg: "",
+    enabled,
   });
   revalidatePath("/admin/companies");
+  redirect("/admin/companies?success=1");
 }
 
 export async function updateCompanyAction(id: number, formData: FormData) {
   await requireAuth();
+  const name = asString(formData.get("name")) || "Company";
+  const enabled = formData.get("enabled") !== "0";
+
+  const fileLogo = formData.get("file_logo");
+  const imgPath = asString(formData.get("img"));
+
+  const uploadedLogo = await saveImageUpload(
+    fileLogo,
+    COMPANIES_UPLOAD_DIR,
+    "/uploads/companies",
+    MAX_COMPANY_ASSET_SIZE,
+    name,
+    "/admin/companies",
+    "logo_error"
+  );
+
+  const finalLogo = imgPath || uploadedLogo || "";
+
   await updateCompany(id, {
-    name: asString(formData.get("name")),
-    img: asString(formData.get("img")),
-    nameImg: asString(formData.get("nameImg")),
+    name,
+    img: finalLogo,
+    nameImg: "",
+    enabled,
   });
   revalidatePath("/admin/companies");
+}
+
+export async function toggleCompanyAction(id: number, formData: FormData) {
+  await requireAuth();
+  const enabled = asString(formData.get("enabled")) === "1";
+  await setCompanyEnabled(id, enabled);
+  revalidatePath("/admin/companies");
+}
+
+export async function syncCompaniesAction() {
+  await requireAuth();
+  const result = await syncCompaniesFromDisk();
+  revalidatePath("/admin/companies");
+  redirect(
+    `/admin/companies?sync_companies=${result.added}&sync_companies_skipped=${result.skipped}`
+  );
 }
 
 export async function deleteCompanyAction(id: number) {
@@ -413,7 +542,7 @@ export async function createServiceAction(formData: FormData) {
     icon: asString(formData.get("icon")) || "Sparkles",
     title: asString(formData.get("title")),
     description: asString(formData.get("description")),
-    tone: asString(formData.get("tone")) || "violet",
+    tone: "violet",
   });
   revalidatePath("/admin/services");
 }
@@ -424,7 +553,7 @@ export async function updateServiceAction(id: number, formData: FormData) {
     icon: asString(formData.get("icon")) || "Sparkles",
     title: asString(formData.get("title")),
     description: asString(formData.get("description")),
-    tone: asString(formData.get("tone")) || "violet",
+    tone: "violet",
   });
   revalidatePath("/admin/services");
 }
@@ -437,19 +566,74 @@ export async function deleteServiceAction(id: number) {
 
 export async function createSocialAction(formData: FormData) {
   await requireAuth();
-  await createSocial({
-    img: asString(formData.get("img")),
-    link: asString(formData.get("link")) || null,
-  });
+  const label = asString(formData.get("label"));
+  const link = asString(formData.get("link")) || null;
+  const enabled = formData.get("enabled") === "1";
+  const file = formData.get("file");
+
+  // Path-based create (no file): admin supplies img path directly
+  const imgPath = asString(formData.get("img"));
+
+  if (!label) {
+    redirect("/admin/social?error=nolabel");
+  }
+
+  let finalImg = imgPath;
+
+  if (file instanceof File && file.size > 0) {
+    if (file.size > MAX_SOCIAL_ASSET_SIZE) {
+      redirect("/admin/social?error=toobig");
+    }
+    const allowedTypes = [
+      "image/png",
+      "image/jpeg",
+      "image/jpg",
+      "image/webp",
+      "image/svg+xml",
+    ];
+    if (!allowedTypes.includes(file.type)) {
+      redirect("/admin/social?error=badtype");
+    }
+    const ext = (() => {
+      const t = file.type;
+      if (t === "image/png") return "png";
+      if (t === "image/jpeg" || t === "image/jpg") return "jpg";
+      if (t === "image/webp") return "webp";
+      if (t === "image/svg+xml") return "svg";
+      return "bin";
+    })();
+    const baseSlug = slugify(label) || "social";
+    const filename = `${baseSlug}-${Date.now().toString(36)}.${ext}`;
+    const buffer = Buffer.from(await file.arrayBuffer());
+    await mkdir(SOCIAL_ASSETS_UPLOAD_DIR, { recursive: true });
+    await writeFile(join(SOCIAL_ASSETS_UPLOAD_DIR, filename), buffer);
+    finalImg = `/uploads/social/${filename}`;
+  }
+
+  if (!finalImg) {
+    redirect("/admin/social?error=nosource");
+  }
+
+  await createSocial({ label, img: finalImg, link, enabled });
   revalidatePath("/admin/social");
+  redirect("/admin/social?success=1");
 }
 
 export async function updateSocialAction(id: number, formData: FormData) {
   await requireAuth();
   await updateSocial(id, {
+    label: asString(formData.get("label")) || "Social",
     img: asString(formData.get("img")),
     link: asString(formData.get("link")) || null,
+    enabled: formData.get("enabled") === "1",
   });
+  revalidatePath("/admin/social");
+}
+
+export async function toggleSocialAction(id: number, formData: FormData) {
+  await requireAuth();
+  const enabled = asString(formData.get("enabled")) === "1";
+  await setSocialEnabled(id, enabled);
   revalidatePath("/admin/social");
 }
 
@@ -457,6 +641,16 @@ export async function deleteSocialAction(id: number) {
   await requireAuth();
   await deleteSocial(id);
   revalidatePath("/admin/social");
+}
+
+export async function syncSocialsAction() {
+  await requireAuth();
+  const result = await syncSocialsFromDisk();
+  revalidatePath("/admin/social");
+  revalidatePath("/admin/assets");
+  redirect(
+    `/admin/social?sync_socials=${result.added}&sync_socials_skipped=${result.skipped}`
+  );
 }
 
 export async function createCoverImageAction(formData: FormData) {
@@ -527,6 +721,13 @@ export async function syncCoverImagesAction() {
   redirect(
     `/admin/assets?sync_covers=${result.added}&sync_covers_skipped=${result.skipped}`
   );
+}
+
+export async function syncProjectImagesAction() {
+  await requireAuth();
+  const result = await syncProjectImagesFromDisk();
+  revalidatePath("/admin/projects");
+  redirect(`/admin/projects?sync_projects=${result.added}`);
 }
 
 export async function updateProfileAction(formData: FormData) {

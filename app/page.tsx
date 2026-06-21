@@ -18,28 +18,25 @@ import { FloatingNav } from "@/components/ui/FloatingNavbar";
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  const [
-    navItems,
-    gridItems,
-    projects,
-    testimonials,
-    companies,
-    socials,
-  ] = await Promise.all([
-    getNavItems(),
-    getGridItems(),
-    getProjects(),
-    getTestimonials(),
-    getCompanies(),
-    getSocials(),
-  ]);
+  const [navItems, gridItems, projects, testimonials, companies, socials] =
+    await Promise.all([
+      getNavItems(),
+      getGridItems(),
+      getProjects(),
+      getTestimonials(),
+      getCompanies(),
+      getSocials(),
+    ]);
 
   const navForComponent = navItems.map((n) => ({ name: n.name, link: n.link }));
-  const socialForComponent = socials.map((s) => ({
-    id: s.id,
-    img: s.img,
-    link: s.link,
-  }));
+  const socialForComponent = socials
+    .filter((s) => Boolean(s.enabled))
+    .map((s) => ({
+      id: s.id,
+      img: s.img,
+      label: s.label,
+      link: s.link,
+    }));
 
   return (
     <main className="relative bg-black-100 flex flex-col items-center overflow-x-clip mx-auto sm:px-10 px-5">

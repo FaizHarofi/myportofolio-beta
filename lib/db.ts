@@ -1,12 +1,17 @@
 import "dotenv/config";
 import mysql from "mysql2/promise";
 
+const DEBUG_MODE =
+  String(process.env.DEBUG_MODE ?? "").toLowerCase() === "true";
+
 declare global {
   // eslint-disable-next-line no-var
   var __mysqlPool: mysql.Pool | undefined;
   // eslint-disable-next-line no-var
   var __mysqlInitPromise: Promise<mysql.Pool> | undefined;
 }
+
+export const isDebugMode = DEBUG_MODE;
 
 function requireEnv(name: string): string {
   if (!(name in process.env)) {
@@ -71,6 +76,8 @@ async function initSchema(conn: mysql.Connection) {
       title_class_name VARCHAR(255),
       img VARCHAR(255),
       spare_img VARCHAR(255),
+      left_lists JSON,
+      right_lists JSON,
       position INT NOT NULL DEFAULT 0
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
@@ -83,6 +90,7 @@ async function initSchema(conn: mysql.Connection) {
       img VARCHAR(255),
       icon_lists JSON,
       link VARCHAR(255),
+      enabled TINYINT(1) NOT NULL DEFAULT 1,
       position INT NOT NULL DEFAULT 0
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
@@ -142,11 +150,14 @@ async function initSchema(conn: mysql.Connection) {
   `);
 
   await conn.query(`
-    CREATE TABLE IF NOT EXISTS social_media (
+    CREATE TABLE IF NOT EXISTS socials (
       id INT AUTO_INCREMENT PRIMARY KEY,
-      img VARCHAR(255),
+      label VARCHAR(255) NOT NULL,
+      img VARCHAR(255) NOT NULL,
       link VARCHAR(500),
-      position INT NOT NULL DEFAULT 0
+      enabled TINYINT(1) NOT NULL DEFAULT 1,
+      position INT NOT NULL DEFAULT 0,
+      UNIQUE KEY uk_socials_img (img)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 
@@ -244,6 +255,8 @@ async function seedProjectsIfEmpty(conn: mysql.Connection) {
       title_class_name: "justify-center",
       img: "",
       spare_img: "",
+      left_lists: ["ReactJS", "Express", "Typescript"],
+      right_lists: ["VueJS", "NuxtJS", "GraphQL"],
     },
     {
       title: "Tech enthusiast with a passion for development.",
@@ -276,8 +289,8 @@ async function seedProjectsIfEmpty(conn: mysql.Connection) {
   for (let i = 0; i < seedGrid.length; i++) {
     const g = seedGrid[i];
     await conn.query(
-      `INSERT INTO grid_items (title, description, class_name, img_class_name, title_class_name, img, spare_img, position)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO grid_items (title, description, class_name, img_class_name, title_class_name, img, spare_img, left_lists, right_lists, position)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         g.title,
         g.description,
@@ -286,6 +299,8 @@ async function seedProjectsIfEmpty(conn: mysql.Connection) {
         g.title_class_name,
         g.img,
         g.spare_img,
+        g.left_lists ? JSON.stringify(g.left_lists) : null,
+        g.right_lists ? JSON.stringify(g.right_lists) : null,
         i,
       ]
     );
@@ -324,8 +339,8 @@ async function seedProjectsIfEmpty(conn: mysql.Connection) {
   for (let i = 0; i < seedProjects.length; i++) {
     const p = seedProjects[i];
     await conn.query(
-      `INSERT INTO projects (title, des, img, icon_lists, link, position)
-       VALUES (?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO projects (title, des, img, icon_lists, link, enabled, position)
+       VALUES (?, ?, ?, ?, ?, 1, ?)`,
       [p.title, p.des, p.img, JSON.stringify(p.iconLists), p.link, i]
     );
   }
@@ -420,18 +435,6 @@ async function seedProjectsIfEmpty(conn: mysql.Connection) {
     await conn.query(
       `INSERT INTO work_experience (title, description, class_name, thumbnail, position) VALUES (?, ?, ?, ?, ?)`,
       [e.title, e.description, e.class_name, e.thumbnail, i]
-    );
-  }
-
-  const seedSocial = [
-    { img: "/git.svg", link: "https://github.com" },
-    { img: "/twit.svg", link: "https://twitter.com" },
-    { img: "/link.svg", link: "https://linkedin.com" },
-  ];
-  for (let i = 0; i < seedSocial.length; i++) {
-    await conn.query(
-      "INSERT INTO social_media (img, link, position) VALUES (?, ?, ?)",
-      [seedSocial[i].img, seedSocial[i].link, i]
     );
   }
 }
@@ -669,6 +672,7 @@ export async function getDb(): Promise<mysql.Pool> {
         waitForConnections: true,
         connectionLimit: 10,
         queueLimit: 0,
+        debug: DEBUG_MODE,
       });
 
       const conn = await newPool.getConnection();

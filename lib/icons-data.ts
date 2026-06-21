@@ -3,6 +3,7 @@ import { readdir, unlink } from "fs/promises";
 import { join, resolve } from "path";
 import { getDb } from "./db";
 import { revalidatePath } from "next/cache";
+import { createProject } from "./data";
 
 const ICONS_UPLOAD_DIR = resolve(
   process.cwd(),
@@ -16,6 +17,18 @@ const COVERS_UPLOAD_DIR = resolve(
   "public",
   "uploads",
   "covers"
+);
+const SOCIAL_ASSETS_UPLOAD_DIR = resolve(
+  process.cwd(),
+  "public",
+  "uploads",
+  "social"
+);
+const COMPANIES_UPLOAD_DIR = resolve(
+  process.cwd(),
+  "public",
+  "uploads",
+  "companies"
 );
 
 function humanizeFilename(filename: string): string {
@@ -286,4 +299,139 @@ export async function deleteCover(id: number) {
   await db.query("DELETE FROM covers WHERE id = ?", [id]);
   revalidatePath("/admin/assets");
   revalidatePath("/admin/projects");
+}
+
+export async function syncSocialsFromDisk(): Promise<{
+  added: number;
+  skipped: number;
+}> {
+  const db = await getDb();
+  // Ensure the unified socials table exists before querying it
+  try {
+    await db.query("SELECT 1 FROM socials LIMIT 1");
+  } catch (err: any) {
+    if (err?.errno === 1146 || err?.code === "ER_NO_SUCH_TABLE") {
+      await db.query(`
+        CREATE TABLE socials (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          label VARCHAR(255) NOT NULL,
+          img VARCHAR(255) NOT NULL,
+          link VARCHAR(500),
+          enabled TINYINT(1) NOT NULL DEFAULT 1,
+          position INT NOT NULL DEFAULT 0,
+          UNIQUE KEY uk_socials_img (img)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+      `);
+    } else {
+      throw err;
+    }
+  }
+
+  let files: string[] = [];
+  try {
+    const entries = await readdir(SOCIAL_ASSETS_UPLOAD_DIR);
+    files = entries.filter((f) => /\.(png|jpe?g|webp|svg)$/i.test(f));
+  } catch {
+    return { added: 0, skipped: 0 };
+  }
+
+  const [existing] = (await db.query(
+    "SELECT img FROM socials"
+  )) as any;
+  const known = new Set(existing.map((r: any) => r.img));
+
+  let added = 0;
+  for (const file of files) {
+    const img = `/uploads/social/${file}`;
+    if (known.has(img)) continue;
+
+    const label = humanizeFilename(file);
+    const [posRow] = (await db.query(
+      "SELECT COALESCE(MAX(position), -1) + 1 AS p FROM socials"
+    )) as any;
+    const [result] = (await db.query(
+      "INSERT IGNORE INTO socials (label, img, enabled, position) VALUES (?, ?, 1, ?)",
+      [label, img, posRow[0].p]
+    )) as any;
+    if ((result?.affectedRows ?? 0) > 0) added++;
+  }
+
+  return { added, skipped: files.length - added };
+}
+
+export async function syncCompaniesFromDisk(): Promise<{
+  added: number;
+  skipped: number;
+}> {
+  const db = await getDb();
+
+  let files: string[] = [];
+  try {
+    const entries = await readdir(COMPANIES_UPLOAD_DIR);
+    files = entries.filter((f) => /\.(png|jpe?g|webp|svg)$/i.test(f));
+  } catch {
+    return { added: 0, skipped: 0 };
+  }
+
+  const [existing] = (await db.query(
+    "SELECT img FROM companies WHERE img IS NOT NULL AND img != ''"
+  )) as any;
+  const known = new Set(existing.map((r: any) => r.img));
+
+  let added = 0;
+  for (const file of files) {
+    const img = `/uploads/companies/${file}`;
+    if (known.has(img)) continue;
+
+    const label = humanizeFilename(file);
+    const [posRow] = (await db.query(
+      "SELECT COALESCE(MAX(position), -1) + 1 AS p FROM companies"
+    )) as any;
+    const [result] = (await db.query(
+      "INSERT IGNORE INTO companies (name, img, name_img, enabled, position) VALUES (?, ?, NULL, 1, ?)",
+      [label, img, posRow[0].p]
+    )) as any;
+    if ((result?.affectedRows ?? 0) > 0) added++;
+  }
+
+  return { added, skipped: files.length - added };
+}
+
+export async function syncProjectImagesFromDisk(): Promise<{
+  added: number;
+  skipped: number;
+}> {
+  const dir = resolve(process.cwd(), "public", "uploads", "project");
+
+  let files: string[] = [];
+  try {
+    const entries = await readdir(dir);
+    files = entries.filter((f) => /\.(png|jpe?g|webp|svg)$/i.test(f));
+  } catch {
+    return { added: 0, skipped: 0 };
+  }
+
+  const db = await getDb();
+  const [existing] = (await db.query(
+    "SELECT img FROM projects WHERE img IS NOT NULL AND img != ''"
+  )) as any;
+  const known = new Set(existing.map((r: any) => r.img));
+
+  let added = 0;
+  for (const file of files) {
+    const img = `/uploads/project/${file}`;
+    if (known.has(img)) continue;
+    const label = humanizeFilename(file) || "Project";
+    await createProject({
+      title: label,
+      des: "",
+      img,
+      iconLists: [],
+      link: "",
+      enabled: true,
+    });
+    added++;
+  }
+
+  return { added, skipped: files.length - added };
 }
