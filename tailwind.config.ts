@@ -3,7 +3,7 @@ import svgToDataUri from "mini-svg-data-uri";
 import animate from "tailwindcss-animate";
 
 const config = {
-  darkMode: ["class"],
+  darkMode: "class",
   content: [
     "./pages/**/*.{ts,tsx}",
     "./components/**/*.{ts,tsx}",

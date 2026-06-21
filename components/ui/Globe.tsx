@@ -167,21 +167,21 @@ export function Globe({ globeConfig, data }: WorldProps) {
 
     globeRef.current
       .arcsData(data)
-      .arcStartLat((d) => (d as Position).startLat * 1)
-      .arcStartLng((d) => (d as Position).startLng * 1)
-      .arcEndLat((d) => (d as Position).endLat * 1)
-      .arcEndLng((d) => (d as Position).endLng * 1)
-      .arcColor((e) => (e as Position).color)
-      .arcAltitude((e) => (e as Position).arcAlt * 1)
+      .arcStartLat((d: any) => (d as Position).startLat * 1)
+      .arcStartLng((d: any) => (d as Position).startLng * 1)
+      .arcEndLat((d: any) => (d as Position).endLat * 1)
+      .arcEndLng((d: any) => (d as Position).endLng * 1)
+      .arcColor((e: any) => (e as Position).color)
+      .arcAltitude((e: any) => (e as Position).arcAlt * 1)
       .arcStroke(() => [0.32, 0.28, 0.3][Math.round(Math.random() * 2)])
       .arcDashLength(defaultProps.arcLength)
-      .arcDashInitialGap((e) => (e as Position).order * 1)
+      .arcDashInitialGap((e: any) => (e as Position).order * 1)
       .arcDashGap(15)
       .arcDashAnimateTime(() => defaultProps.arcTime);
 
     globeRef.current
       .pointsData(data)
-      .pointColor((e) => (e as Position).color)
+      .pointColor((e: any) => (e as Position).color)
       .pointsMerge(true)
       .pointAltitude(0.0)
       .pointRadius(2);
@@ -216,7 +216,8 @@ export function Globe({ globeConfig, data }: WorldProps) {
 
   if (!globeData) return null;
 
-  return <threeGlobe ref={globeRef} />;
+  // @ts-expect-error -- ref type mismatch between useRef<ThreeGlobe> and fiber's JSX generic
+  return <threeGlobe ref={globeRef as any} />;
 }
 
 export function WebGLRendererConfig() {
