@@ -8,8 +8,12 @@ import {
   RefreshCw,
   FolderSync,
 } from "lucide-react";
-import { getTechIcons, syncCoversFromDisk, syncTechIconsFromDisk } from "@/lib/icons-data";
-import { getCovers } from "@/lib/icons-data";
+import {
+  getTechIcons,
+  getCovers,
+  syncCoversFromDisk,
+  syncTechIconsFromDisk,
+} from "@/lib/icons-data";
 import { DeleteButton } from "@/components/admin/EntityForm";
 import { FileInput } from "@/components/admin/FileInput";
 import { PageHeader } from "@/components/admin/PageHeader";
@@ -55,7 +59,7 @@ export default async function AdminAssets({
     sync_icons_skipped?: string;
     sync_covers?: string;
     sync_covers_skipped?: string;
-  }>
+  }>;
 }) {
   const params = await searchParams;
 

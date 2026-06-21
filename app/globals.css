@@ -76,6 +76,9 @@
     @apply active:outline-none;
   }
 
+  /* Native cursor hiding is managed by <CursorGate /> via injected
+     <style> tag (so it can be enabled/disabled per route). */
+
   img,
   svg,
   [data-protect] {
@@ -95,4 +98,24 @@
   .heading {
     @apply font-bold text-4xl md:text-5xl text-center;
   }
+}
+
+/* Custom scrollbar — thin, dark, subtle */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
 }

@@ -1,5 +1,6 @@
 import { LayoutGrid, Image as ImageIcon } from "lucide-react";
 import { getGridItems } from "@/lib/data";
+import { getCovers } from "@/lib/icons-data";
 import { AddNewButton } from "@/components/admin/AddNewButton";
 import { EditableItem } from "@/components/admin/EditableItem";
 import { PageHeader } from "@/components/admin/PageHeader";
@@ -23,12 +24,46 @@ const fields: Field[] = [
   },
   { name: "imgClassName", label: "Image className" },
   { name: "titleClassName", label: "Title className" },
-  { name: "img", label: "Image path", placeholder: "/b1.svg" },
-  { name: "spareImg", label: "Spare image path", placeholder: "/grid.svg" },
+  {
+    name: "img",
+    label: "Image",
+    type: "cover-picker",
+    hint: "Pick from cover library. Upload new images at /admin/assets → Cover library → public\\uploads\\covers.",
+  },
+  {
+    name: "spareImg",
+    label: "Spare image",
+    type: "cover-picker",
+    hint: "Optional decorative overlay (rendered at right-bottom of the card).",
+  },
+  {
+    name: "leftLists",
+    label: "Left list (tech stack)",
+    placeholder: "ReactJS, Express, Typescript",
+    hint: "Comma-separated. Only shown when id === 3.",
+  },
+  {
+    name: "rightLists",
+    label: "Right list (tech stack)",
+    placeholder: "VueJS, NuxtJS, GraphQL",
+    hint: "Comma-separated. Only shown when id === 3.",
+  },
 ];
 
 export default async function AdminGridItems() {
-  const items = await getGridItems();
+  const [items, covers] = await Promise.all([getGridItems(), getCovers()]);
+
+  const coverOptions = covers.map((c) => ({
+    path: c.path,
+    label: c.label,
+  }));
+
+  const fieldsWithOptions: Field[] = fields.map((f) => {
+    if (f.name === "img" || f.name === "spareImg") {
+      return { ...f, options: coverOptions };
+    }
+    return f;
+  });
 
   return (
     <div className="max-w-6xl">
@@ -41,7 +76,7 @@ export default async function AdminGridItems() {
           <AddNewButton
             title="Add new grid item"
             description="Pick layout classes and visual assets for the homepage grid."
-            fields={fields}
+            fields={fieldsWithOptions}
             action={createGridItemAction}
             modalSize="lg"
           />
@@ -63,7 +98,7 @@ export default async function AdminGridItems() {
               action={
                 <AddNewButton
                   title="Add new grid item"
-                  fields={fields}
+                  fields={fieldsWithOptions}
                   action={createGridItemAction}
                   modalSize="lg"
                 />
@@ -103,7 +138,7 @@ export default async function AdminGridItems() {
                       </div>
                     )
                   }
-                  fields={fields}
+                  fields={fieldsWithOptions}
                   defaults={{
                     title: g.title,
                     description: g.description,
@@ -112,6 +147,8 @@ export default async function AdminGridItems() {
                     titleClassName: g.titleClassName,
                     img: g.img,
                     spareImg: g.spareImg,
+                    leftLists: g.leftLists.join(", "),
+                    rightLists: g.rightLists.join(", "),
                   }}
                   updateAction={updateGridItemAction.bind(null, g.id)}
                   deleteAction={deleteGridItemAction.bind(null, g.id)}

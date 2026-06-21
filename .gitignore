@@ -28,11 +28,14 @@ pnpm-debug.log*
 *.log
 
 # local env files
-.env*.local
+# .env is secret — never commit
 .env
+.env*.local
 .env.*.local
 .env.production.local
 .env.test.local
+# .env.example is the template and SHOULD be committed (force-add)
+!.env.example
 
 # vercel
 .vercel
@@ -71,6 +74,12 @@ ehthumbs.db
 !/public/uploads/covers/.gitkeep
 /public/uploads/avatars/*
 !/public/uploads/avatars/.gitkeep
+/public/uploads/social/*
+!/public/uploads/social/.gitkeep
+/public/uploads/companies/*
+!/public/uploads/companies/.gitkeep
+/public/uploads/project/*
+!/public/uploads/project/.gitkeep
 
 # Database backups (output of `npm run db:backup`)
 /backups/

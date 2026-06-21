@@ -1,14 +1,24 @@
 import { withSentryConfig } from "@sentry/nextjs";
 
+const DEBUG_MODE =
+  String(process.env.DEBUG_MODE ?? "").toLowerCase() === "true";
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  serverActions: {
-    bodySizeLimit: "5mb",
-  },
   images: {
     remotePatterns: [{ protocol: "https", hostname: "**" }],
   },
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "5mb",
+    },
+  },
+  // Next.js Dev Tools (floating "N" icon, ⌘+B / Ctrl+B to toggle).
+  // Show only when DEBUG_MODE is on; hidden in production.
+  devIndicators: DEBUG_MODE
+    ? { appIsrStatus: true, buildActivity: true }
+    : false,
 };
 
 export default withSentryConfig(

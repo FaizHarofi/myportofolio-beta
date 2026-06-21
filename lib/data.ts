@@ -12,6 +12,8 @@ export type GridItem = {
   titleClassName: string;
   img: string;
   spareImg: string;
+  leftLists: string[];
+  rightLists: string[];
   position: number;
 };
 export type Project = {
@@ -21,6 +23,7 @@ export type Project = {
   img: string;
   iconLists: string[];
   link: string;
+  enabled: boolean;
   position: number;
 };
 export type Testimonial = {
@@ -35,6 +38,7 @@ export type Company = {
   name: string;
   img: string;
   nameImg: string;
+  enabled: boolean;
   position: number;
 };
 export type Experience = {
@@ -45,7 +49,14 @@ export type Experience = {
   thumbnail: string;
   position: number;
 };
-export type Social = { id: number; img: string; link: string | null; position: number };
+export type Social = {
+  id: number;
+  label: string;
+  img: string;
+  link: string | null;
+  enabled: boolean;
+  position: number;
+};
 export type Service = {
   id: number;
   icon: string;
@@ -88,8 +99,24 @@ function rowToGrid(r: any): GridItem {
     titleClassName: r.title_class_name ?? "",
     img: r.img ?? "",
     spareImg: r.spare_img ?? "",
+    leftLists: parseJsonArray(r.left_lists),
+    rightLists: parseJsonArray(r.right_lists),
     position: r.position,
   };
+}
+
+function parseJsonArray(v: unknown): string[] {
+  if (!v) return [];
+  if (Array.isArray(v)) return v as string[];
+  if (typeof v === "string") {
+    try {
+      const parsed = JSON.parse(v);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
 }
 
 function rowToProject(r: any): Project {
@@ -106,6 +133,7 @@ function rowToProject(r: any): Project {
     img: r.img ?? "",
     iconLists: lists,
     link: r.link ?? "",
+    enabled: r.enabled ?? 1,
     position: r.position,
   };
 }
@@ -116,6 +144,7 @@ function rowToCompany(r: any): Company {
     name: r.name ?? "",
     img: r.img ?? "",
     nameImg: r.name_img ?? "",
+    enabled: r.enabled ?? 1,
     position: r.position,
   };
 }
@@ -141,18 +170,54 @@ export async function getNavItems(): Promise<NavItem[]> {
 
 export async function getGridItems(): Promise<GridItem[]> {
   const db = await getDb();
+  await ensureGridItemsListsColumns(db);
   const [rows] = (await db.query(
     "SELECT * FROM grid_items ORDER BY position ASC, id ASC"
   )) as any;
   return rows.map(rowToGrid);
 }
 
+async function ensureGridItemsListsColumns(db: mysql.Pool) {
+  try {
+    const [leftCols] = (await db.query(
+      "SHOW COLUMNS FROM grid_items LIKE 'left_lists'"
+    )) as any;
+    if (leftCols.length === 0) {
+      await db.query("ALTER TABLE grid_items ADD COLUMN left_lists JSON");
+    }
+    const [rightCols] = (await db.query(
+      "SHOW COLUMNS FROM grid_items LIKE 'right_lists'"
+    )) as any;
+    if (rightCols.length === 0) {
+      await db.query("ALTER TABLE grid_items ADD COLUMN right_lists JSON");
+    }
+  } catch (err: any) {
+    if (err?.errno !== 1146) throw err;
+  }
+}
+
 export async function getProjects(): Promise<Project[]> {
   const db = await getDb();
+  await ensureProjectsEnabledColumn(db);
   const [rows] = (await db.query(
     "SELECT * FROM projects ORDER BY position ASC, id ASC"
   )) as any;
   return rows.map(rowToProject);
+}
+
+async function ensureProjectsEnabledColumn(db: mysql.Pool) {
+  try {
+    const [cols] = (await db.query(
+      "SHOW COLUMNS FROM projects LIKE 'enabled'"
+    )) as any;
+    if (cols.length === 0) {
+      await db.query(
+        "ALTER TABLE projects ADD COLUMN enabled TINYINT(1) NOT NULL DEFAULT 1"
+      );
+    }
+  } catch (err: any) {
+    if (err?.errno !== 1146) throw err;
+  }
 }
 
 export async function getTestimonials(): Promise<Testimonial[]> {
@@ -165,10 +230,26 @@ export async function getTestimonials(): Promise<Testimonial[]> {
 
 export async function getCompanies(): Promise<Company[]> {
   const db = await getDb();
+  await ensureCompaniesEnabledColumn(db);
   const [rows] = (await db.query(
     "SELECT * FROM companies ORDER BY position ASC, id ASC"
   )) as any;
   return rows.map(rowToCompany);
+}
+
+async function ensureCompaniesEnabledColumn(db: mysql.Pool) {
+  try {
+    const [cols] = (await db.query(
+      "SHOW COLUMNS FROM companies LIKE 'enabled'"
+    )) as any;
+    if (cols.length === 0) {
+      await db.query(
+        "ALTER TABLE companies ADD COLUMN enabled TINYINT(1) NOT NULL DEFAULT 1"
+      );
+    }
+  } catch (err: any) {
+    if (err?.errno !== 1146) throw err;
+  }
 }
 
 export async function getExperiences(): Promise<Experience[]> {
@@ -181,11 +262,33 @@ export async function getExperiences(): Promise<Experience[]> {
 
 export async function getSocials(): Promise<Social[]> {
   const db = await getDb();
-  await ensureSocialsLinkColumn(db);
+  await ensureSocialsTable(db);
   const [rows] = (await db.query(
-    "SELECT * FROM social_media ORDER BY position ASC, id ASC"
+    "SELECT * FROM socials ORDER BY position ASC, id ASC"
   )) as any;
   return rows;
+}
+
+async function ensureSocialsTable(db: mysql.Pool) {
+  try {
+    await db.query("SELECT 1 FROM socials LIMIT 1");
+  } catch (err: any) {
+    if (err?.errno === 1146 || err?.code === "ER_NO_SUCH_TABLE") {
+      await db.query(`
+        CREATE TABLE socials (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          label VARCHAR(255) NOT NULL,
+          img VARCHAR(255) NOT NULL,
+          link VARCHAR(500),
+          enabled TINYINT(1) NOT NULL DEFAULT 1,
+          position INT NOT NULL DEFAULT 0,
+          UNIQUE KEY uk_socials_img (img)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+      `);
+    } else {
+      throw err;
+    }
+  }
 }
 
 async function ensureServicesTable(db: mysql.Pool) {
@@ -206,19 +309,6 @@ async function ensureServicesTable(db: mysql.Pool) {
     } else {
       throw err;
     }
-  }
-}
-
-async function ensureSocialsLinkColumn(db: mysql.Pool) {
-  try {
-    const [cols] = (await db.query(
-      "SHOW COLUMNS FROM social_media LIKE 'link'"
-    )) as any;
-    if (cols.length === 0) {
-      await db.query("ALTER TABLE social_media ADD COLUMN link VARCHAR(500)");
-    }
-  } catch (err: any) {
-    if (err?.errno !== 1146) throw err;
   }
 }
 
@@ -350,15 +440,17 @@ async function nextPosition(table: string): Promise<number> {
 
 export async function createProject(input: Omit<Project, "id" | "position">) {
   const db = await getDb();
+  await ensureProjectsEnabledColumn(db);
   const pos = await nextPosition("projects");
   await db.query(
-    "INSERT INTO projects (title, des, img, icon_lists, link, position) VALUES (?, ?, ?, ?, ?, ?)",
+    "INSERT INTO projects (title, des, img, icon_lists, link, enabled, position) VALUES (?, ?, ?, ?, ?, ?, ?)",
     [
       input.title,
       input.des,
       input.img,
       JSON.stringify(input.iconLists),
       input.link,
+      input.enabled ? 1 : 0,
       pos,
     ]
   );
@@ -367,18 +459,31 @@ export async function createProject(input: Omit<Project, "id" | "position">) {
 
 export async function updateProject(id: number, input: Omit<Project, "id" | "position">) {
   const db = await getDb();
+  await ensureProjectsEnabledColumn(db);
   await db.query(
-    "UPDATE projects SET title=?, des=?, img=?, icon_lists=?, link=? WHERE id=?",
+    "UPDATE projects SET title=?, des=?, img=?, icon_lists=?, link=?, enabled=? WHERE id=?",
     [
       input.title,
       input.des,
       input.img,
       JSON.stringify(input.iconLists),
       input.link,
+      input.enabled ? 1 : 0,
       id,
     ]
   );
   revalidatePath("/");
+}
+
+export async function setProjectEnabled(id: number, enabled: boolean) {
+  const db = await getDb();
+  await ensureProjectsEnabledColumn(db);
+  await db.query("UPDATE projects SET enabled=? WHERE id=?", [
+    enabled ? 1 : 0,
+    id,
+  ]);
+  revalidatePath("/");
+  revalidatePath("/admin/projects");
 }
 
 export async function deleteProject(id: number) {
@@ -389,10 +494,11 @@ export async function deleteProject(id: number) {
 
 export async function createGridItem(input: Omit<GridItem, "id" | "position">) {
   const db = await getDb();
+  await ensureGridItemsListsColumns(db);
   const pos = await nextPosition("grid_items");
   await db.query(
-    `INSERT INTO grid_items (title, description, class_name, img_class_name, title_class_name, img, spare_img, position)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO grid_items (title, description, class_name, img_class_name, title_class_name, img, spare_img, left_lists, right_lists, position)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       input.title,
       input.description,
@@ -401,6 +507,8 @@ export async function createGridItem(input: Omit<GridItem, "id" | "position">) {
       input.titleClassName,
       input.img,
       input.spareImg,
+      JSON.stringify(input.leftLists ?? []),
+      JSON.stringify(input.rightLists ?? []),
       pos,
     ]
   );
@@ -409,8 +517,9 @@ export async function createGridItem(input: Omit<GridItem, "id" | "position">) {
 
 export async function updateGridItem(id: number, input: Omit<GridItem, "id" | "position">) {
   const db = await getDb();
+  await ensureGridItemsListsColumns(db);
   await db.query(
-    `UPDATE grid_items SET title=?, description=?, class_name=?, img_class_name=?, title_class_name=?, img=?, spare_img=? WHERE id=?`,
+    `UPDATE grid_items SET title=?, description=?, class_name=?, img_class_name=?, title_class_name=?, img=?, spare_img=?, left_lists=?, right_lists=? WHERE id=?`,
     [
       input.title,
       input.description,
@@ -419,6 +528,8 @@ export async function updateGridItem(id: number, input: Omit<GridItem, "id" | "p
       input.titleClassName,
       input.img,
       input.spareImg,
+      JSON.stringify(input.leftLists ?? []),
+      JSON.stringify(input.rightLists ?? []),
       id,
     ]
   );
@@ -458,20 +569,35 @@ export async function deleteTestimonial(id: number) {
 
 export async function createCompany(input: Omit<Company, "id" | "position">) {
   const db = await getDb();
+  await ensureCompaniesEnabledColumn(db);
   const pos = await nextPosition("companies");
   await db.query(
-    "INSERT INTO companies (name, img, name_img, position) VALUES (?, ?, ?, ?)",
-    [input.name, input.img, input.nameImg, pos]
+    "INSERT INTO companies (name, img, name_img, enabled, position) VALUES (?, ?, ?, ?, ?)",
+    [input.name, input.img, input.nameImg, input.enabled ? 1 : 0, pos]
   );
+  revalidatePath("/admin/companies");
   revalidatePath("/");
 }
 
 export async function updateCompany(id: number, input: Omit<Company, "id" | "position">) {
   const db = await getDb();
+  await ensureCompaniesEnabledColumn(db);
   await db.query(
-    "UPDATE companies SET name=?, img=?, name_img=? WHERE id=?",
-    [input.name, input.img, input.nameImg, id]
+    "UPDATE companies SET name=?, img=?, name_img=?, enabled=? WHERE id=?",
+    [input.name, input.img, input.nameImg, input.enabled ? 1 : 0, id]
   );
+  revalidatePath("/admin/companies");
+  revalidatePath("/");
+}
+
+export async function setCompanyEnabled(id: number, enabled: boolean) {
+  const db = await getDb();
+  await ensureCompaniesEnabledColumn(db);
+  await db.query("UPDATE companies SET enabled=? WHERE id=?", [
+    enabled ? 1 : 0,
+    id,
+  ]);
+  revalidatePath("/admin/companies");
   revalidatePath("/");
 }
 
@@ -508,31 +634,46 @@ export async function deleteExperience(id: number) {
 
 export async function createSocial(input: Omit<Social, "id" | "position">) {
   const db = await getDb();
-  await ensureSocialsLinkColumn(db);
-  const pos = await nextPosition("social_media");
+  await ensureSocialsTable(db);
+  const pos = await nextPosition("socials");
   await db.query(
-    "INSERT INTO social_media (img, link, position) VALUES (?, ?, ?)",
-    [input.img, input.link ?? null, pos]
+    "INSERT INTO socials (label, img, link, enabled, position) VALUES (?, ?, ?, ?, ?)",
+    [input.label, input.img, input.link ?? null, input.enabled ? 1 : 0, pos]
   );
   revalidatePath("/admin/social");
+  revalidatePath("/admin/assets");
   revalidatePath("/");
 }
 
 export async function updateSocial(id: number, input: Omit<Social, "id" | "position">) {
   const db = await getDb();
-  await ensureSocialsLinkColumn(db);
+  await ensureSocialsTable(db);
   await db.query(
-    "UPDATE social_media SET img=?, link=? WHERE id=?",
-    [input.img, input.link ?? null, id]
+    "UPDATE socials SET label=?, img=?, link=?, enabled=? WHERE id=?",
+    [input.label, input.img, input.link ?? null, input.enabled ? 1 : 0, id]
   );
+  revalidatePath("/admin/social");
+  revalidatePath("/admin/assets");
+  revalidatePath("/");
+}
+
+export async function setSocialEnabled(id: number, enabled: boolean) {
+  const db = await getDb();
+  await ensureSocialsTable(db);
+  await db.query("UPDATE socials SET enabled=? WHERE id=?", [
+    enabled ? 1 : 0,
+    id,
+  ]);
   revalidatePath("/admin/social");
   revalidatePath("/");
 }
 
 export async function deleteSocial(id: number) {
   const db = await getDb();
-  await db.query("DELETE FROM social_media WHERE id=?", [id]);
+  await ensureSocialsTable(db);
+  await db.query("DELETE FROM socials WHERE id=?", [id]);
   revalidatePath("/admin/social");
+  revalidatePath("/admin/assets");
   revalidatePath("/");
 }
 

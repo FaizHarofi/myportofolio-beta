@@ -39,59 +39,6 @@ const ICON_MAP: Record<
   Wand,
 };
 
-type Tone =
-  | "violet"
-  | "fuchsia"
-  | "indigo"
-  | "sky"
-  | "emerald"
-  | "amber"
-  | "rose";
-
-const toneStyles: Record<Tone, { card: string; icon: string; hover: string }> =
-  {
-    violet: {
-      card: "from-violet-500/15 via-violet-500/5 border-violet-400/25",
-      icon: "bg-violet-500/20 text-violet-300 border-violet-400/30",
-      hover: "group-hover:border-violet-400/50",
-    },
-    fuchsia: {
-      card: "from-fuchsia-500/15 via-fuchsia-500/5 border-fuchsia-400/25",
-      icon: "bg-fuchsia-500/20 text-fuchsia-300 border-fuchsia-400/30",
-      hover: "group-hover:border-fuchsia-400/50",
-    },
-    indigo: {
-      card: "from-indigo-500/15 via-indigo-500/5 border-indigo-400/25",
-      icon: "bg-indigo-500/20 text-indigo-300 border-indigo-400/30",
-      hover: "group-hover:border-indigo-400/50",
-    },
-    sky: {
-      card: "from-sky-500/15 via-sky-500/5 border-sky-400/25",
-      icon: "bg-sky-500/20 text-sky-300 border-sky-400/30",
-      hover: "group-hover:border-sky-400/50",
-    },
-    emerald: {
-      card: "from-emerald-500/15 via-emerald-500/5 border-emerald-400/25",
-      icon: "bg-emerald-500/20 text-emerald-300 border-emerald-400/30",
-      hover: "group-hover:border-emerald-400/50",
-    },
-    amber: {
-      card: "from-amber-500/15 via-amber-500/5 border-amber-400/25",
-      icon: "bg-amber-500/20 text-amber-300 border-amber-400/30",
-      hover: "group-hover:border-amber-400/50",
-    },
-    rose: {
-      card: "from-rose-500/15 via-rose-500/5 border-rose-400/25",
-      icon: "bg-rose-500/20 text-rose-300 border-rose-400/30",
-      hover: "group-hover:border-rose-400/50",
-    },
-  };
-
-function toneFor(s: string): Tone {
-  if (s in toneStyles) return s as Tone;
-  return "violet";
-}
-
 function iconFor(s: string) {
   return ICON_MAP[s] ?? Sparkles;
 }
@@ -109,10 +56,6 @@ export default async function Services() {
         <h2 className="mt-3 text-3xl font-bold tracking-tight text-white sm:text-4xl md:text-5xl">
           What I can do for you.
         </h2>
-        <p className="mt-3 text-sm text-slate-400 sm:text-base">
-          From first sketch to final deploy — full-stack creative services for
-          brands and individuals who want to stand out.
-        </p>
       </div>
 
       {services.length > 0 ? (
@@ -133,45 +76,20 @@ export default async function Services() {
           .
         </div>
       )}
-
-      <div className="mt-10 flex flex-col items-start justify-between gap-4 rounded-2xl border border-white/10 bg-slate-900/30 p-5 sm:flex-row sm:items-center sm:p-6">
-        <div>
-          <p className="text-sm font-medium text-white">
-            Need something custom?
-          </p>
-          <p className="mt-1 text-xs text-slate-400">
-            Got a project that doesn&apos;t fit a category? Let&apos;s talk — I
-            love a good challenge.
-          </p>
-        </div>
-        <a
-          href="mailto:faizsjawa@gmail.com"
-          className="inline-flex items-center gap-2 rounded-lg border border-violet-400/40 bg-violet-500/10 px-4 py-2 text-xs font-medium text-violet-200 transition hover:bg-violet-500/20"
-        >
-          Start a project
-          <ArrowUpRight size={13} />
-        </a>
-      </div>
     </section>
   );
 }
 
 function ServiceCard({ service }: { service: Service }) {
-  const tone = toneFor(service.tone);
-  const t = toneStyles[tone];
   const Icon = iconFor(service.icon);
 
   return (
-    <article
-      className={`group relative overflow-hidden rounded-2xl border bg-gradient-to-br p-6 backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:shadow-2xl hover:shadow-black/30 ${t.card} ${t.hover}`}
-    >
+    <article className="group relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-sky-500/10 via-violet-500/5 to-fuchsia-500/10 p-6 backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:border-violet-400/40 hover:shadow-2xl hover:shadow-violet-500/10">
       <div className="absolute -right-12 -top-12 h-32 w-32 rounded-full bg-slate-950/5 blur-2xl" />
 
       <div className="relative">
         <div className="flex items-start justify-between">
-          <span
-            className={`inline-flex h-12 w-12 items-center justify-center rounded-xl border ${t.icon}`}
-          >
+          <span className="inline-flex h-12 w-12 items-center justify-center rounded-xl border border-violet-400/30 bg-violet-500/20 text-violet-200">
             <Icon size={22} />
           </span>
           <ArrowUpRight
@@ -181,7 +99,7 @@ function ServiceCard({ service }: { service: Service }) {
         </div>
 
         <h3 className="mt-5 text-lg font-bold text-white">{service.title}</h3>
-        <p className="mt-2 text-sm leading-relaxed text-slate-300">
+        <p className="mt-2 text-sm leading-relaxed text-white/80">
           {service.description}
         </p>
       </div>
