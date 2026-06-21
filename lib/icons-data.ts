@@ -1,9 +1,10 @@
 import mysql from "mysql2/promise";
-import { readdir, unlink } from "fs/promises";
+import { readdir } from "fs/promises";
 import { join, resolve } from "path";
 import { getDb } from "./db";
 import { revalidatePath } from "next/cache";
 import { createProject } from "./data";
+import { deleteBlob } from "./blob";
 
 const ICONS_UPLOAD_DIR = resolve(
   process.cwd(),
@@ -209,15 +210,7 @@ export async function deleteTechIcon(id: number) {
   )) as any;
   const row = rows[0];
   if (row?.path) {
-    const uploadDir = resolve(process.cwd(), "public", "uploads", "tech", "icon");
-    const fileAbs = resolve(process.cwd(), "public", row.path.replace(/^\//, ""));
-    if (fileAbs.startsWith(uploadDir)) {
-      try {
-        await unlink(fileAbs);
-      } catch {
-        /* file may already be missing — ignore */
-      }
-    }
+    await deleteBlob(row.path);
   }
 
   await db.query("DELETE FROM tech_icons WHERE id = ?", [id]);
@@ -285,15 +278,7 @@ export async function deleteCover(id: number) {
   )) as any;
   const row = rows[0];
   if (row?.path) {
-    const uploadDir = resolve(process.cwd(), "public", "uploads", "covers");
-    const fileAbs = resolve(process.cwd(), "public", row.path.replace(/^\//, ""));
-    if (fileAbs.startsWith(uploadDir)) {
-      try {
-        await unlink(fileAbs);
-      } catch {
-        /* file may already be missing — ignore */
-      }
-    }
+    await deleteBlob(row.path);
   }
 
   await db.query("DELETE FROM covers WHERE id = ?", [id]);

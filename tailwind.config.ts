@@ -1,9 +1,9 @@
 import type { Config } from "tailwindcss";
-
-const svgToDataUri = require("mini-svg-data-uri");
+import svgToDataUri from "mini-svg-data-uri";
+import animate from "tailwindcss-animate";
 
 const config = {
-  darkMode: ["class"],
+  darkMode: "class",
   content: [
     "./pages/**/*.{ts,tsx}",
     "./components/**/*.{ts,tsx}",
@@ -148,7 +148,7 @@ const config = {
     },
   },
   plugins: [
-    require("tailwindcss-animate"),
+    animate,
     function ({ matchUtilities, theme }: any) {
       const flattenColorPalette = (input: any): Record<string, string> => {
         const result: Record<string, string> = {};
