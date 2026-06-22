@@ -218,6 +218,14 @@ async function initSchema(conn: mysql.Connection) {
       value VARCHAR(255)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
+
+  await conn.query(`
+    CREATE TABLE IF NOT EXISTS app_settings (
+      id INT PRIMARY KEY DEFAULT 1,
+      config JSON NOT NULL,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
 }
 
 async function seedProjectsIfEmpty(conn: mysql.Connection) {

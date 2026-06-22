@@ -56,10 +56,17 @@ const COMPANIES_UPLOAD_DIR = join(process.cwd(), "public", "uploads", "companies
 const AVATARS_UPLOAD_DIR = join(process.cwd(), "public", "uploads", "avatars");
 const MAX_AVATAR_SIZE = 3 * 1024 * 1024;
 const MAX_ICON_SIZE = 100 * 1024;
-const MAX_COVER_SIZE = 2 * 1024 * 1024;
+const MAX_COVER_SIZE = 3 * 1024 * 1024;
 const MAX_SOCIAL_ASSET_SIZE = 2 * 1024 * 1024;
 const MAX_COMPANY_ASSET_SIZE = 2 * 1024 * 1024;
 
+// Fallback limits used when the settings table hasn't been read yet
+// (e.g. before getDb initializes). All upload actions read from getSettings()
+// in lib/data.ts at runtime so these are just safety nets.
+async function getUploadLimits() {
+  const { getSettings } = await import("@/lib/data");
+  return getSettings();
+}
 function slugify(text: string): string {
   return (
     text
@@ -279,12 +286,13 @@ export async function createCompanyAction(formData: FormData) {
 
   const fileLogo = formData.get("file_logo");
   const imgPath = asString(formData.get("img"));
+  const companyLimits = await getUploadLimits();
 
   const uploadedLogo = await saveImageUpload(
     fileLogo,
     COMPANIES_UPLOAD_DIR,
     "/uploads/companies",
-    MAX_COMPANY_ASSET_SIZE,
+    companyLimits.maxCompanySize,
     name,
     "/admin/companies",
     "logo_error"
@@ -313,12 +321,13 @@ export async function updateCompanyAction(id: number, formData: FormData) {
 
   const fileLogo = formData.get("file_logo");
   const imgPath = asString(formData.get("img"));
+  const companyLimits = await getUploadLimits();
 
   const uploadedLogo = await saveImageUpload(
     fileLogo,
     COMPANIES_UPLOAD_DIR,
     "/uploads/companies",
-    MAX_COMPANY_ASSET_SIZE,
+    companyLimits.maxCompanySize,
     name,
     "/admin/companies",
     "logo_error"
@@ -422,7 +431,8 @@ export async function createTechIconAction(formData: FormData) {
     redirect("/admin/assets?error=nofile");
   }
 
-  if (file.size > MAX_ICON_SIZE) {
+  const limits = await getUploadLimits();
+  if (file.size > limits.maxIconSize) {
     redirect("/admin/assets?error=toobig");
   }
 
@@ -485,6 +495,45 @@ export async function deleteTechIconAction(id: number) {
   await deleteTechIcon(id);
   revalidatePath("/admin/assets");
   redirect("/admin/assets?deleted=tech_icon");
+}
+
+export async function updateSettingsAction(formData: FormData) {
+  await requireAuth();
+  const { updateSettings } = await import("@/lib/data");
+
+  const parseMb = (raw: FormDataEntryValue | null) => {
+    const mb = Number(asString(raw));
+    if (!Number.isFinite(mb) || mb <= 0) return null;
+    return Math.round(mb * 1024 * 1024);
+  };
+
+  const input = {
+    maxAvatarSize:
+      parseMb(formData.get("maxAvatarSize")) ?? undefined,
+    maxCoverSize:
+      parseMb(formData.get("maxCoverSize")) ?? undefined,
+    maxSocialSize:
+      parseMb(formData.get("maxSocialSize")) ?? undefined,
+    maxCompanySize:
+      parseMb(formData.get("maxCompanySize")) ?? undefined,
+    maxIconSize:
+      parseMb(formData.get("maxIconSize")) ??
+      (() => {
+        const kb = Number(asString(formData.get("maxIconSizeKb")));
+        return Number.isFinite(kb) && kb > 0 ? Math.round(kb * 1024) : undefined;
+      })(),
+    maxProjectImageSize:
+      parseMb(formData.get("maxProjectImageSize")) ?? undefined,
+  };
+
+  // Strip undefined keys so getSettings() merges with existing values
+  const cleaned = Object.fromEntries(
+    Object.entries(input).filter(([, v]) => typeof v === "number")
+  ) as Parameters<typeof updateSettings>[0];
+
+  await updateSettings(cleaned);
+  revalidatePath("/admin/settings");
+  redirect("/admin/settings?saved=1");
 }
 
 export async function createSkillAction(formData: FormData) {
@@ -584,7 +633,8 @@ export async function createSocialAction(formData: FormData) {
   let finalImg = imgPath;
 
   if (file instanceof File && file.size > 0) {
-    if (file.size > MAX_SOCIAL_ASSET_SIZE) {
+    const limits = await getUploadLimits();
+    if (file.size > limits.maxSocialSize) {
       redirect("/admin/social?error=toobig");
     }
     const allowedTypes = [
@@ -669,7 +719,8 @@ export async function createCoverImageAction(formData: FormData) {
     redirect("/admin/assets?cover_error=nofile");
   }
 
-  if (file.size > MAX_COVER_SIZE) {
+  const limits = await getUploadLimits();
+  if (file.size > limits.maxCoverSize) {
     redirect("/admin/assets?cover_error=toobig");
   }
 
@@ -753,7 +804,8 @@ export async function uploadAvatarAction(formData: FormData) {
     redirect("/admin/profile?avatar_error=nofile");
   }
 
-  if (file.size > MAX_AVATAR_SIZE) {
+  const limits = await getUploadLimits();
+  if (file.size > limits.maxAvatarSize) {
     redirect("/admin/profile?avatar_error=toobig");
   }
 

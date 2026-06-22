@@ -89,6 +89,61 @@ export type Education = {
   position: number;
 };
 
+export type Settings = {
+  maxAvatarSize: number;
+  maxCoverSize: number;
+  maxSocialSize: number;
+  maxCompanySize: number;
+  maxIconSize: number;
+  maxProjectImageSize: number;
+  allowedImageTypes: string[];
+};
+
+export const DEFAULT_SETTINGS: Settings = {
+  maxAvatarSize: 3 * 1024 * 1024,    // 3 MB
+  maxCoverSize: 3 * 1024 * 1024,     // 3 MB
+  maxSocialSize: 2 * 1024 * 1024,    // 2 MB
+  maxCompanySize: 2 * 1024 * 1024,   // 2 MB
+  maxIconSize: 100 * 1024,            // 100 KB
+  maxProjectImageSize: 5 * 1024 * 1024, // 5 MB
+  allowedImageTypes: [
+    "image/png",
+    "image/jpeg",
+    "image/jpg",
+    "image/webp",
+    "image/svg+xml",
+  ],
+};
+
+export async function getSettings(): Promise<Settings> {
+  const db = await getDb();
+  try {
+    const [rows] = (await db.query(
+      "SELECT config FROM app_settings WHERE id = 1"
+    )) as any;
+    const row = rows[0];
+    if (!row?.config) return DEFAULT_SETTINGS;
+    const parsed = typeof row.config === "string" ? JSON.parse(row.config) : row.config;
+    // Merge with defaults so new fields always have a value
+    return { ...DEFAULT_SETTINGS, ...parsed };
+  } catch {
+    return DEFAULT_SETTINGS;
+  }
+}
+
+export async function updateSettings(input: Partial<Settings>) {
+  const db = await getDb();
+  const current = await getSettings();
+  const merged = { ...current, ...input };
+  await db.query(
+    `INSERT INTO app_settings (id, config) VALUES (1, ?)
+     ON DUPLICATE KEY UPDATE config = VALUES(config)`,
+    [JSON.stringify(merged)]
+  );
+  revalidatePath("/admin/settings");
+  revalidatePath("/");
+}
+
 function rowToGrid(r: any): GridItem {
   return {
     id: r.id,
