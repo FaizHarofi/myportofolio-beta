@@ -483,6 +483,8 @@ export async function createTechIconAction(formData: FormData) {
 export async function deleteTechIconAction(id: number) {
   await requireAuth();
   await deleteTechIcon(id);
+  revalidatePath("/admin/assets");
+  redirect("/admin/assets?deleted=tech_icon");
 }
 
 export async function createSkillAction(formData: FormData) {
