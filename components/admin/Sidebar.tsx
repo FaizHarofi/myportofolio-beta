@@ -17,6 +17,7 @@ import {
   GraduationCap,
   Layers,
   UserCircle2,
+  SlidersHorizontal,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -40,6 +41,7 @@ const links: NavLink[] = [
   { href: "/admin/educations", label: "Education", icon: GraduationCap },
   { href: "/admin/social", label: "Social Media", icon: Share2 },
   { href: "/admin/nav", label: "Nav Items", icon: Link2 },
+  { href: "/admin/settings", label: "Settings", icon: SlidersHorizontal },
 ];
 
 function isActive(pathname: string, link: NavLink) {
