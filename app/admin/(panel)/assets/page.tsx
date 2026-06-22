@@ -40,8 +40,6 @@ const coverSuccessMessage = "Cover image berhasil diupload";
 const iconErrorMessages: Record<string, string> = {
   nolabel: "Label wajib diisi",
   nofile: "File SVG wajib dipilih",
-  not24x24:
-    'SVG harus 24x24 (width="24" height="24" atau viewBox="0 0 24 24")',
   toobig: "File terlalu besar",
   notsvg: "File harus berisi SVG valid",
 };
@@ -83,9 +81,10 @@ export default async function AdminAssets({
   const coverMaxMb = (settings.maxCoverSize / 1024 / 1024).toFixed(0);
   const iconMaxKb = (settings.maxIconSize / 1024).toFixed(0);
 
-  const iconError = params?.error
-    ? iconErrorMessages[params.error] || "Terjadi error"
-    : null;
+  const iconError =
+    params?.error
+      ? iconErrorMessages[params.error] || "Terjadi error"
+      : null;
   const iconSuccess = params?.success === "1" ? iconSuccessMessage : null;
   const iconErrorToobig = params?.error === "toobig" ? `File terlalu besar (max ${iconMaxKb}KB)` : null;
   const dbErrorDetail =
@@ -104,7 +103,7 @@ export default async function AdminAssets({
     <div className="max-w-6xl">
       <PageHeader
         title="Assets"
-        description="Upload and manage all reusable assets: tech stack icons (24×24 SVG) and project cover images."
+        description="Upload and manage all reusable assets: tech stack SVG icons and project cover images."
         icon={<Sparkles size={22} />}
         badge={`${icons.length + covers.length} total`}
       />
@@ -298,11 +297,11 @@ export default async function AdminAssets({
         <div className="p-5 sm:p-6">
           <SectionHeader
             title="Upload tech icon"
-            description={`Add a 24×24 SVG to the library. Max ${iconMaxKb}KB.`}
+            description={`Add a SVG to the library. Max ${iconMaxKb}KB.`}
             action={
               <span className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2 py-1 rounded-md bg-fuchsia-500/10 text-fuchsia-300 border border-fuchsia-500/20">
                 <Sparkles size={11} />
-                24×24 SVG
+                SVG
               </span>
             }
           />
@@ -341,15 +340,11 @@ export default async function AdminAssets({
               </div>
             </div>
             <p className="text-[11px] text-slate-500">
-              SVG harus punya{" "}
+              File harus berisi SVG yang valid (tag{" "}
               <code className="rounded bg-slate-900/60 px-1.5 py-0.5 text-violet-300">
-                width="24" height="24"
+                &lt;svg&gt;
               </code>{" "}
-              atau{" "}
-              <code className="rounded bg-slate-900/60 px-1.5 py-0.5 text-violet-300">
-                viewBox="0 0 24 24"
-              </code>
-              .
+              tertutup). Ukuran tidak dibatasi.
             </p>
             <div className="flex justify-end">
               <button

@@ -87,7 +87,7 @@ export default async function AdminSettings({
             <LimitField
               name="maxIconSize"
               label="Tech icon"
-              description="Used in /admin/assets → Tech icon library (24×24 SVG)"
+              description="Used in /admin/assets → Tech icon library (SVG, any size)"
               unit="KB"
               valueKb={formatKb(settings.maxIconSize)}
             />
