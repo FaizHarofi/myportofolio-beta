@@ -433,16 +433,6 @@ export async function createTechIconAction(formData: FormData) {
 
   const raw = await file.text();
 
-  const has24Size =
-    /width\s*=\s*["']24["']/.test(raw) &&
-    /height\s*=\s*["']24["']/.test(raw);
-  const has24ViewBox =
-    /viewBox\s*=\s*["']0\s+0\s+24\s+24["']/.test(raw);
-
-  if (!has24Size && !has24ViewBox) {
-    redirect("/admin/assets?error=not24x24");
-  }
-
   const cleaned = raw
     .replace(/^\uFEFF/, "")
     .replace(/^<\?xml[\s\S]*?\?>\s*/, "")
