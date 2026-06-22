@@ -68,14 +68,18 @@ ehthumbs.db
 .turbo/
 
 # User-uploaded assets (admin uploads — keep folder structure via .gitkeep)
-# Uploaded files are committed to GitHub (intentional for this project).
-# Add /public/uploads/<folder>/* to .gitignore to revert if needed.
-/public/uploads/tech/icon/.gitkeep
-/public/uploads/covers/.gitkeep
-/public/uploads/avatars/.gitkeep
-/public/uploads/social/.gitkeep
-/public/uploads/companies/.gitkeep
-/public/uploads/project/.gitkeep
+/public/uploads/tech/icon/*
+!/public/uploads/tech/icon/.gitkeep
+/public/uploads/covers/*
+!/public/uploads/covers/.gitkeep
+/public/uploads/avatars/*
+!/public/uploads/avatars/.gitkeep
+/public/uploads/social/*
+!/public/uploads/social/.gitkeep
+/public/uploads/companies/*
+!/public/uploads/companies/.gitkeep
+/public/uploads/project/*
+!/public/uploads/project/.gitkeep
 
 # Database backups (output of `npm run db:backup`)
 /backups/
