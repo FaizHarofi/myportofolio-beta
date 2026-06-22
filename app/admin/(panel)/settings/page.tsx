@@ -1,7 +1,9 @@
 import { SlidersHorizontal, CheckCircle2, AlertCircle } from "lucide-react";
 import { getSettings } from "@/lib/data";
+import { getCovers } from "@/lib/icons-data";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { Surface, SectionHeader } from "@/components/admin/Surface";
+import { CoverPicker } from "@/components/admin/CoverPicker";
 import { updateSettingsAction } from "../../actions";
 
 function formatMb(bytes: number): string {
@@ -18,7 +20,11 @@ export default async function AdminSettings({
   searchParams: Promise<{ saved?: string; error?: string }>;
 }) {
   const params = await searchParams;
-  const settings = await getSettings();
+  const [settings, covers] = await Promise.all([getSettings(), getCovers()]);
+  const coverOptions = covers.map((cover) => ({
+    path: cover.path,
+    label: cover.label,
+  }));
 
   return (
     <div className="max-w-3xl">
@@ -97,27 +103,24 @@ export default async function AdminSettings({
           <div className="rounded-xl border border-white/10 bg-slate-950/30 p-4">
             <SectionHeader
               title="Footer grid background"
-              description="Used behind the footer contact section. PNG or SVG recommended."
+              description="Pick a cover image from the library. Used behind the footer contact section."
             />
-            <div className="mt-4 grid grid-cols-1 sm:grid-cols-[160px_1fr] gap-4 items-center">
-              <div className="h-20 overflow-hidden rounded-lg border border-white/10 bg-slate-950/60">
+            <div className="mt-4 space-y-3">
+              <div className="h-24 overflow-hidden rounded-lg border border-white/10 bg-slate-950/60">
                 <img
                   src={settings.footerGridImg}
                   alt="Footer grid preview"
                   className="h-full w-full object-cover opacity-70"
                 />
               </div>
-              <div>
-                <input
-                  type="file"
-                  name="footerGridFile"
-                  accept="image/png,image/svg+xml"
-                  className="w-full rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2.5 text-sm text-slate-300 file:mr-3 file:rounded-md file:border-0 file:bg-violet-500/15 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-violet-200 hover:file:bg-violet-500/25"
-                />
-                <p className="mt-1 text-[10px] text-slate-500 font-mono truncate">
-                  Current: {settings.footerGridImg}
-                </p>
-              </div>
+              <CoverPicker
+                name="footerGridImg"
+                value={settings.footerGridImg}
+                options={coverOptions}
+              />
+              <p className="text-[10px] text-slate-500 font-mono truncate">
+                Current: {settings.footerGridImg}
+              </p>
             </div>
           </div>
 
