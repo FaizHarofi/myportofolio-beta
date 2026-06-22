@@ -29,14 +29,22 @@ export async function uploadBlob(
   const absPath = resolve(
     process.cwd(),
     "public",
-    pathname.replace(/^\//, ""),
+    pathname.replace(/^\//, "")
   );
-  await mkdir(resolve(absPath, ".."), { recursive: true });
-  await writeFile(
-    absPath,
-    typeof body === "string" ? body : body,
-  );
-  return `/${pathname.replace(/^\//, "")}`;
+  try {
+    await mkdir(resolve(absPath, ".."), { recursive: true });
+    await writeFile(
+      absPath,
+      typeof body === "string" ? body : body,
+    );
+    return `/${pathname.replace(/^\//, "")}`;
+  } catch (err: any) {
+    throw new Error(
+      `Local upload fallback failed: ${err?.code ?? err?.message}. ` +
+        `If you are in production (Vercel), set BLOB_READ_WRITE_TOKEN ` +
+        `in your Vercel project env vars to enable cloud storage.`
+    );
+  }
 }
 
 /**

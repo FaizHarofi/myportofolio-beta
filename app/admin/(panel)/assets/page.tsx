@@ -14,6 +14,7 @@ import {
   syncCoversFromDisk,
   syncTechIconsFromDisk,
 } from "@/lib/icons-data";
+import { getSettings } from "@/lib/data";
 import { DeleteButton } from "@/components/admin/EntityForm";
 import { FileInput } from "@/components/admin/FileInput";
 import { PageHeader } from "@/components/admin/PageHeader";
@@ -31,7 +32,7 @@ import {
 const coverErrorMessages: Record<string, string> = {
   nolabel: "Label wajib diisi",
   nofile: "File gambar wajib dipilih",
-  toobig: "File terlalu besar (max 2MB)",
+  toobig: "File terlalu besar",
   badtype: "Format harus PNG, JPG, WebP, atau SVG",
 };
 const coverSuccessMessage = "Cover image berhasil diupload";
@@ -41,7 +42,7 @@ const iconErrorMessages: Record<string, string> = {
   nofile: "File SVG wajib dipilih",
   not24x24:
     'SVG harus 24x24 (width="24" height="24" atau viewBox="0 0 24 24")',
-  toobig: "File terlalu besar (max 100KB)",
+  toobig: "File terlalu besar",
   notsvg: "File harus berisi SVG valid",
 };
 const iconSuccessMessage = "Icon berhasil ditambahkan";
@@ -74,18 +75,29 @@ export default async function AdminAssets({
       ? `${iconsSync.added} icon${iconsSync.added === 1 ? "" : "s"} + ${coversSync.added} cover${coversSync.added === 1 ? "" : "s"} synced from disk`
       : null;
 
-  const [icons, covers] = await Promise.all([getTechIcons(), getCovers()]);
+  const [icons, covers, settings] = await Promise.all([
+    getTechIcons(),
+    getCovers(),
+    getSettings(),
+  ]);
+  const coverMaxMb = (settings.maxCoverSize / 1024 / 1024).toFixed(0);
+  const iconMaxKb = (settings.maxIconSize / 1024).toFixed(0);
 
   const iconError = params?.error
     ? iconErrorMessages[params.error] || "Terjadi error"
     : null;
   const iconSuccess = params?.success === "1" ? iconSuccessMessage : null;
+  const iconErrorToobig = params?.error === "toobig" ? `File terlalu besar (max ${iconMaxKb}KB)` : null;
   const dbErrorDetail =
     params?.error === "dbinsert" && params?.msg ? params.msg : null;
 
-  const coverError = params?.cover_error
-    ? coverErrorMessages[params.cover_error] || "Terjadi error"
-    : null;
+  const coverErrorKey = params?.cover_error;
+  const coverError =
+    coverErrorKey === "toobig"
+      ? `File terlalu besar (max ${coverMaxMb}MB)`
+      : coverErrorKey
+      ? coverErrorMessages[coverErrorKey] || "Terjadi error"
+      : null;
   const coverSuccess = params?.cover_success === "1" ? coverSuccessMessage : null;
 
   return (
@@ -113,7 +125,7 @@ export default async function AdminAssets({
         <div className="mb-4 flex flex-col gap-1 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
           <div className="flex items-start gap-2.5">
             <AlertCircle size={16} className="mt-0.5 shrink-0" />
-            <span>{iconError}</span>
+            <span>{iconErrorToobig ?? iconError}</span>
           </div>
           {dbErrorDetail ? (
             <p className="ml-6 font-mono text-[11px] text-rose-300/80">
@@ -166,7 +178,7 @@ export default async function AdminAssets({
         <div className="p-5 sm:p-6">
           <SectionHeader
             title="Upload cover image"
-            description="Used for project cover images. PNG / JPG / WebP / SVG, max 2MB."
+            description={`Used for project cover images. PNG / JPG / WebP / SVG, max ${coverMaxMb}MB.`}
             action={
               <span className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2 py-1 rounded-md bg-violet-500/10 text-violet-300 border border-violet-500/20">
                 <ImageIcon size={11} />
@@ -286,7 +298,7 @@ export default async function AdminAssets({
         <div className="p-5 sm:p-6">
           <SectionHeader
             title="Upload tech icon"
-            description="Add a 24×24 SVG to the library."
+            description={`Add a 24×24 SVG to the library. Max ${iconMaxKb}KB.`}
             action={
               <span className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2 py-1 rounded-md bg-fuchsia-500/10 text-fuchsia-300 border border-fuchsia-500/20">
                 <Sparkles size={11} />
