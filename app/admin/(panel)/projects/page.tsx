@@ -39,13 +39,6 @@ const fields: Field[] = [
   { name: "link", label: "External link", placeholder: "https://..." },
 ];
 
-const imgUploadField: Field = {
-  name: "imgFile",
-  label: "Upload new cover image",
-  type: "file",
-  hint: "Optional. PNG / JPG / WebP / SVG, max 3MB. Saved to Vercel Blob (or public\\uploads\\project locally).",
-};
-
 function humanizeFilename(filename: string): string {
   return filename
     .replace(/\.[^.]+$/, "")
@@ -192,22 +185,6 @@ export default async function AdminProjects({
             columns={2}
           >
             <ImagePicker name="img" value="" options={coverOptions} />
-            {imgUploadField && (
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-slate-300">
-                  {imgUploadField.label}
-                </label>
-                <input
-                  type="file"
-                  name={imgUploadField.name}
-                  accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                  className="w-full rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2.5 text-sm text-slate-300 file:mr-3 file:rounded-md file:border-0 file:bg-violet-500/15 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-violet-200 hover:file:bg-violet-500/25"
-                />
-                {imgUploadField.hint ? (
-                  <p className="mt-1.5 text-[11px] text-slate-500">{imgUploadField.hint}</p>
-                ) : null}
-              </div>
-            )}
             <IconPickerBlock selected={[]} options={iconOptions} />
           </AddNewButton>
         }
@@ -274,20 +251,6 @@ export default async function AdminProjects({
                   columns={2}
                 >
                   <ImagePicker name="img" value="" options={coverOptions} />
-                  <div>
-                    <label className="mb-1.5 block text-xs font-medium text-slate-300">
-                      {imgUploadField.label}
-                    </label>
-                    <input
-                      type="file"
-                      name={imgUploadField.name}
-                      accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                      className="w-full rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2.5 text-sm text-slate-300 file:mr-3 file:rounded-md file:border-0 file:bg-violet-500/15 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-violet-200 hover:file:bg-violet-500/25"
-                    />
-                    {imgUploadField.hint ? (
-                      <p className="mt-1.5 text-[11px] text-slate-500">{imgUploadField.hint}</p>
-                    ) : null}
-                  </div>
                   <IconPickerBlock selected={[]} options={iconOptions} />
                 </AddNewButton>
               }
@@ -382,20 +345,6 @@ export default async function AdminProjects({
                         value={p.img}
                         options={coverOptions}
                       />
-                      <div>
-                        <label className="mb-1.5 block text-xs font-medium text-slate-300">
-                          {imgUploadField.label}
-                        </label>
-                        <input
-                          type="file"
-                          name={imgUploadField.name}
-                          accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                          className="w-full rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2.5 text-sm text-slate-300 file:mr-3 file:rounded-md file:border-0 file:bg-violet-500/15 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-violet-200 hover:file:bg-violet-500/25"
-                        />
-                        {imgUploadField.hint ? (
-                          <p className="mt-1.5 text-[11px] text-slate-500">{imgUploadField.hint}</p>
-                        ) : null}
-                      </div>
                       <IconPickerBlock
                         selected={p.iconLists}
                         options={iconOptions}

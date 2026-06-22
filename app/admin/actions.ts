@@ -160,15 +160,12 @@ function sanitizeNavLink(raw: string): string {
   return "#" + v.replace(/^#+/, "");
 }
 
-const URL_PREFIX_PROJECT = "uploads/project";
-
 export async function createProjectAction(formData: FormData) {
   await requireAuth();
-  const imgInput = await resolveProjectImage(formData);
   await createProject({
     title: asString(formData.get("title")),
     des: asString(formData.get("des")),
-    img: imgInput,
+    img: asString(formData.get("img")),
     iconLists: asStringArrayMulti(formData, "iconLists"),
     link: asString(formData.get("link")),
     enabled: formData.get("enabled") !== "0",
@@ -178,41 +175,15 @@ export async function createProjectAction(formData: FormData) {
 
 export async function updateProjectAction(id: number, formData: FormData) {
   await requireAuth();
-  const imgInput = await resolveProjectImage(formData);
   await updateProject(id, {
     title: asString(formData.get("title")),
     des: asString(formData.get("des")),
-    img: imgInput,
+    img: asString(formData.get("img")),
     iconLists: asStringArrayMulti(formData, "iconLists"),
     link: asString(formData.get("link")),
     enabled: formData.get("enabled") !== "0",
   });
   revalidatePath("/admin/projects");
-}
-
-async function resolveProjectImage(formData: FormData): Promise<string> {
-  const picked = asString(formData.get("img"));
-  const file = formData.get("imgFile");
-  if (file instanceof File && file.size > 0) {
-    const limits = await getUploadLimits();
-    if (file.size > limits.maxCoverSize) {
-      redirect("/admin/projects?error=imgtoobig");
-    }
-    const ext = (() => {
-      const t = file.type;
-      if (t === "image/png") return "png";
-      if (t === "image/jpeg" || t === "image/jpg") return "jpg";
-      if (t === "image/webp") return "webp";
-      if (t === "image/svg+xml") return "svg";
-      return "bin";
-    })();
-    const filename = `project-${Date.now().toString(36)}.${ext}`;
-    const buffer = Buffer.from(await file.arrayBuffer());
-    return await uploadBlob(`${URL_PREFIX_PROJECT}/${filename}`, buffer, {
-      contentType: file.type,
-    });
-  }
-  return picked;
 }
 
 export async function toggleProjectAction(id: number, formData: FormData) {
