@@ -160,12 +160,15 @@ function sanitizeNavLink(raw: string): string {
   return "#" + v.replace(/^#+/, "");
 }
 
+const URL_PREFIX_PROJECT = "uploads/project";
+
 export async function createProjectAction(formData: FormData) {
   await requireAuth();
+  const imgInput = await resolveProjectImage(formData);
   await createProject({
     title: asString(formData.get("title")),
     des: asString(formData.get("des")),
-    img: asString(formData.get("img")),
+    img: imgInput,
     iconLists: asStringArrayMulti(formData, "iconLists"),
     link: asString(formData.get("link")),
     enabled: formData.get("enabled") !== "0",
@@ -175,15 +178,41 @@ export async function createProjectAction(formData: FormData) {
 
 export async function updateProjectAction(id: number, formData: FormData) {
   await requireAuth();
+  const imgInput = await resolveProjectImage(formData);
   await updateProject(id, {
     title: asString(formData.get("title")),
     des: asString(formData.get("des")),
-    img: asString(formData.get("img")),
+    img: imgInput,
     iconLists: asStringArrayMulti(formData, "iconLists"),
     link: asString(formData.get("link")),
     enabled: formData.get("enabled") !== "0",
   });
   revalidatePath("/admin/projects");
+}
+
+async function resolveProjectImage(formData: FormData): Promise<string> {
+  const picked = asString(formData.get("img"));
+  const file = formData.get("imgFile");
+  if (file instanceof File && file.size > 0) {
+    const limits = await getUploadLimits();
+    if (file.size > limits.maxCoverSize) {
+      redirect("/admin/projects?error=imgtoobig");
+    }
+    const ext = (() => {
+      const t = file.type;
+      if (t === "image/png") return "png";
+      if (t === "image/jpeg" || t === "image/jpg") return "jpg";
+      if (t === "image/webp") return "webp";
+      if (t === "image/svg+xml") return "svg";
+      return "bin";
+    })();
+    const filename = `project-${Date.now().toString(36)}.${ext}`;
+    const buffer = Buffer.from(await file.arrayBuffer());
+    return await uploadBlob(`${URL_PREFIX_PROJECT}/${filename}`, buffer, {
+      contentType: file.type,
+    });
+  }
+  return picked;
 }
 
 export async function toggleProjectAction(id: number, formData: FormData) {
@@ -448,22 +477,25 @@ export async function createTechIconAction(formData: FormData) {
   const filename = `${baseSlug}-${Date.now().toString(36)}.svg`;
   const blobPath = `uploads/tech/icon/${filename}`;
 
+  let uploadedUrl: string | null = null;
   try {
-    await uploadBlob(blobPath, cleaned, { contentType: "image/svg+xml" });
+    uploadedUrl = await uploadBlob(blobPath, cleaned, { contentType: "image/svg+xml" });
     await createTechIcon({
       label,
-      path: `/${blobPath}`,
+      path: uploadedUrl,
     });
     console.log(
-      `[createTechIconAction] inserted: label="${label}" path="/${blobPath}"`
+      `[createTechIconAction] inserted: label="${label}" path="${uploadedUrl}"`
     );
   } catch (err) {
     console.error("[createTechIconAction] DB insert FAILED:", err);
     // Try to clean up the orphaned blob so we don't leave a dangling asset
-    try {
-      await deleteBlob(`/${blobPath}`);
-    } catch {
-      /* ignore */
+    if (uploadedUrl) {
+      try {
+        await deleteBlob(uploadedUrl);
+      } catch {
+        /* ignore */
+      }
     }
     redirect(
       `/admin/assets?error=dbinsert&msg=${encodeURIComponent(
