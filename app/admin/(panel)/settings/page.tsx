@@ -94,6 +94,33 @@ export default async function AdminSettings({
             />
           </div>
 
+          <div className="rounded-xl border border-white/10 bg-slate-950/30 p-4">
+            <SectionHeader
+              title="Footer grid background"
+              description="Used behind the footer contact section. PNG or SVG recommended."
+            />
+            <div className="mt-4 grid grid-cols-1 sm:grid-cols-[160px_1fr] gap-4 items-center">
+              <div className="h-20 overflow-hidden rounded-lg border border-white/10 bg-slate-950/60">
+                <img
+                  src={settings.footerGridImg}
+                  alt="Footer grid preview"
+                  className="h-full w-full object-cover opacity-70"
+                />
+              </div>
+              <div>
+                <input
+                  type="file"
+                  name="footerGridFile"
+                  accept="image/png,image/svg+xml"
+                  className="w-full rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2.5 text-sm text-slate-300 file:mr-3 file:rounded-md file:border-0 file:bg-violet-500/15 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-violet-200 hover:file:bg-violet-500/25"
+                />
+                <p className="mt-1 text-[10px] text-slate-500 font-mono truncate">
+                  Current: {settings.footerGridImg}
+                </p>
+              </div>
+            </div>
+          </div>
+
           <div className="rounded-xl border border-white/10 bg-slate-950/30 p-4 text-xs text-slate-400">
             <p className="font-medium text-slate-300">Allowed file types (all uploads)</p>
             <p className="mt-1 font-mono">{settings.allowedImageTypes.join(", ")}</p>

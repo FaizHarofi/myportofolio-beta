@@ -97,6 +97,7 @@ export type Settings = {
   maxIconSize: number;
   maxProjectImageSize: number;
   allowedImageTypes: string[];
+  footerGridImg: string;
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -113,6 +114,7 @@ export const DEFAULT_SETTINGS: Settings = {
     "image/webp",
     "image/svg+xml",
   ],
+  footerGridImg: "/footer-grid.svg",
 };
 
 export async function getSettings(): Promise<Settings> {

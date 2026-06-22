@@ -521,13 +521,24 @@ export async function updateSettingsAction(formData: FormData) {
       parseMb(formData.get("maxProjectImageSize")) ?? undefined,
   };
 
-  // Strip undefined keys so getSettings() merges with existing values
   const cleaned = Object.fromEntries(
     Object.entries(input).filter(([, v]) => typeof v === "number")
   ) as Parameters<typeof updateSettings>[0];
 
+  const footerFile = formData.get("footerGridFile");
+  if (footerFile instanceof File && footerFile.size > 0) {
+    const ext = footerFile.type === "image/svg+xml" ? "svg" : "png";
+    const filename = `footer-grid-${Date.now().toString(36)}.${ext}`;
+    const buffer = Buffer.from(await footerFile.arrayBuffer());
+    const url = await uploadBlob(`uploads/footer/${filename}`, buffer, {
+      contentType: footerFile.type,
+    });
+    cleaned.footerGridImg = url;
+  }
+
   await updateSettings(cleaned);
   revalidatePath("/admin/settings");
+  revalidatePath("/");
   redirect("/admin/settings?saved=1");
 }
 
