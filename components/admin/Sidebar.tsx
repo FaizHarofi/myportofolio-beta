@@ -100,7 +100,7 @@ export function Sidebar({
           </Link>
         </div>
 
-        <nav className="flex-1 px-3 py-4">
+        <nav className="flex-1 px-3 py-4 overflow-y-auto">
           <p className="px-3 mb-2 text-[10px] font-semibold tracking-[0.2em] text-slate-500 uppercase">
             Content
           </p>

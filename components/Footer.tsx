@@ -4,8 +4,10 @@ import MagicButton from "./MagicButton";
 
 const Footer = ({
   socials,
+  footerGridImg,
 }: {
   socials: { id: number; img: string; link: string | null }[];
+  footerGridImg?: string;
 }) => {
   return (
     <footer
@@ -14,7 +16,7 @@ const Footer = ({
     >
       <div className="absolute inset-x-0 bottom-0 h-40 pointer-events-none select-none">
         <img
-          src="/footer-grid.svg"
+          src={footerGridImg || "/footer-grid.svg"}
           alt="grid"
           className="w-full h-full opacity-50"
         />

@@ -3,6 +3,7 @@ import {
   getGridItems,
   getNavItems,
   getProjects,
+  getSettings,
   getSocials,
   getTestimonials,
 } from "@/lib/data";
@@ -18,7 +19,7 @@ import { FloatingNav } from "@/components/ui/FloatingNavbar";
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  const [navItems, gridItems, projects, testimonials, companies, socials] =
+  const [navItems, gridItems, projects, testimonials, companies, socials, settings] =
     await Promise.all([
       getNavItems(),
       getGridItems(),
@@ -26,6 +27,7 @@ export default async function Home() {
       getTestimonials(),
       getCompanies(),
       getSocials(),
+      getSettings(),
     ]);
 
   const navForComponent = navItems.map((n) => ({ name: n.name, link: n.link }));
@@ -47,7 +49,7 @@ export default async function Home() {
         <RecentProjects projects={projects} />
         <Clients testimonials={testimonials} companies={companies} />
         <Services />
-        <Footer socials={socialForComponent} />
+        <Footer socials={socialForComponent} footerGridImg={settings.footerGridImg} />
       </div>
     </main>
   );
