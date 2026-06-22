@@ -2,8 +2,6 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { mkdir, unlink, writeFile } from "fs/promises";
-import { join, resolve } from "path";
 import { uploadBlob, deleteBlob } from "@/lib/blob";
 import {
   checkPassword,
@@ -49,16 +47,13 @@ import {
 } from "@/lib/data";
 import { createCover, createTechIcon, deleteCover, deleteTechIcon, syncCompaniesFromDisk, syncCoversFromDisk, syncProjectImagesFromDisk, syncSocialsFromDisk, syncTechIconsFromDisk } from "@/lib/icons-data";
 
-const ICONS_UPLOAD_DIR = join(process.cwd(), "public", "uploads", "tech", "icon");
-const COVERS_UPLOAD_DIR = join(process.cwd(), "public", "uploads", "covers");
-const SOCIAL_ASSETS_UPLOAD_DIR = join(process.cwd(), "public", "uploads", "social");
-const COMPANIES_UPLOAD_DIR = join(process.cwd(), "public", "uploads", "companies");
-const AVATARS_UPLOAD_DIR = join(process.cwd(), "public", "uploads", "avatars");
 const MAX_AVATAR_SIZE = 3 * 1024 * 1024;
 const MAX_ICON_SIZE = 100 * 1024;
 const MAX_COVER_SIZE = 3 * 1024 * 1024;
 const MAX_SOCIAL_ASSET_SIZE = 2 * 1024 * 1024;
 const MAX_COMPANY_ASSET_SIZE = 2 * 1024 * 1024;
+const URL_PREFIX_SOCIAL = "uploads/social";
+const URL_PREFIX_COVERS = "uploads/covers";
 
 // Fallback limits used when the settings table hasn't been read yet
 // (e.g. before getDb initializes). All upload actions read from getSettings()
@@ -290,7 +285,7 @@ export async function createCompanyAction(formData: FormData) {
 
   const uploadedLogo = await saveImageUpload(
     fileLogo,
-    COMPANIES_UPLOAD_DIR,
+    "",
     "/uploads/companies",
     companyLimits.maxCompanySize,
     name,
@@ -325,7 +320,7 @@ export async function updateCompanyAction(id: number, formData: FormData) {
 
   const uploadedLogo = await saveImageUpload(
     fileLogo,
-    COMPANIES_UPLOAD_DIR,
+    "",
     "/uploads/companies",
     companyLimits.maxCompanySize,
     name,
@@ -658,9 +653,9 @@ export async function createSocialAction(formData: FormData) {
     const baseSlug = slugify(label) || "social";
     const filename = `${baseSlug}-${Date.now().toString(36)}.${ext}`;
     const buffer = Buffer.from(await file.arrayBuffer());
-    await mkdir(SOCIAL_ASSETS_UPLOAD_DIR, { recursive: true });
-    await writeFile(join(SOCIAL_ASSETS_UPLOAD_DIR, filename), buffer);
-    finalImg = `/uploads/social/${filename}`;
+    finalImg = await uploadBlob(`${URL_PREFIX_SOCIAL}/${filename}`, buffer, {
+      contentType: file.type,
+    });
   }
 
   if (!finalImg) {
@@ -742,8 +737,9 @@ export async function createCoverImageAction(formData: FormData) {
   const filename = `${baseSlug}-${Date.now().toString(36)}.${ext}`;
   const buffer = Buffer.from(await file.arrayBuffer());
 
-  await mkdir(COVERS_UPLOAD_DIR, { recursive: true });
-  await writeFile(join(COVERS_UPLOAD_DIR, filename), buffer);
+  await uploadBlob(`${URL_PREFIX_COVERS}/${filename}`, buffer, {
+    contentType: file.type,
+  });
 
   await createCover({
     label,
