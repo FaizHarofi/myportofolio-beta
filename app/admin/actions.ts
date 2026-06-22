@@ -737,13 +737,13 @@ export async function createCoverImageAction(formData: FormData) {
   const filename = `${baseSlug}-${Date.now().toString(36)}.${ext}`;
   const buffer = Buffer.from(await file.arrayBuffer());
 
-  await uploadBlob(`${URL_PREFIX_COVERS}/${filename}`, buffer, {
+  const url = await uploadBlob(`${URL_PREFIX_COVERS}/${filename}`, buffer, {
     contentType: file.type,
   });
 
   await createCover({
     label,
-    path: `/uploads/covers/${filename}`,
+    path: url,
   });
 
   redirect("/admin/assets?cover_success=1");
